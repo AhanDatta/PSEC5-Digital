@@ -59,7 +59,7 @@ output logic full_rstn //Goes to the buffer register to reset the clock divider
 );
 
     logic [1:0] count = 0;
-    always_ff @(posedge iclk) begin
+    always_ff @(posedge iclk, posedge sclk) begin
         if (sclk == 1) begin
             count <= 0;
         end
