@@ -82,14 +82,14 @@ module s2p_module (
 input logic serial_in, 
 input logic spi_clk,
 input logic iclk, //internal clock
-output logic [7:0] full_msg
+output logic [7:0] full_msg,
+output logic msg_stop_rstn // reset not from clock comparator -> register
 );
 
     logic [7:0] msgi;
-    logic rstin; //internal reset not from reg -> shift reg
-    logic full_rstin; // internal reset not from clock comparator -> register
+    logic rstin; //internal reset not from reg -> shift reg 
 
     s2p_shift_register shift_reg(.serial_in (serial_in), .sclk (spi_clk), .rstn (rstin), .msg (msgi));
-    buffer_register register(.msg (msgi), .sclk (spi_clk), .full_rstn (full_rstin), .rstn (rstin), .complete_msg (full_msg));
-    clock_comparator comparator(.sclk (spi_clk), .iclk (iclk), .full_rstn (full_rstin));
+    buffer_register register(.msg (msgi), .sclk (spi_clk), .full_rstn (msg_stop_rstn), .rstn (rstin), .complete_msg (full_msg));
+    clock_comparator comparator(.sclk (spi_clk), .iclk (iclk), .full_rstn (msg_stop_rstn));
 endmodule
