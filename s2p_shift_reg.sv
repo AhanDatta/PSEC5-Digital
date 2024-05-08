@@ -93,3 +93,5 @@ output logic msg_stop_rstn // reset not from clock comparator -> register
     buffer_register register(.msg (msgi), .sclk (spi_clk), .full_rstn (msg_stop_rstn), .rstn (rstin), .complete_msg (full_msg));
     clock_comparator comparator(.sclk (spi_clk), .iclk (iclk), .full_rstn (msg_stop_rstn));
 endmodule
+
+// 8bit -> logic (first 8bit -> pointer for reg number, next 8 -> data, increment register, repeat until msg stop)
