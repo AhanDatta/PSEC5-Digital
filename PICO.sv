@@ -78,6 +78,7 @@ output logic full_rstn //Goes to the buffer register to reset the clock divider
     end
 endmodule
 
+//Takes serial input and outputs 8bit msg and reset signal if input stops
 module s2p_module (
 input logic serial_in, 
 input logic spi_clk,
@@ -95,3 +96,59 @@ output logic msg_stop_rstn // reset not from clock comparator -> register
 endmodule
 
 // 8bit -> logic (first 8bit -> pointer for reg number, next 8 -> data, increment register, repeat until msg stop)
+
+//Shift reg to write to for simulation
+module eight_bit_reg (
+input logic [7:0] data,
+input logic sclk,
+input logic rstn,
+output logic [7:0] out
+);
+    always_ff @(posedge sclk or negedge rstn) begin
+        if (!rstn) begin
+            out <= '0;
+        end
+        else begin
+            out <= data;
+        end
+    end
+endmodule
+
+//Simple synch register to fix the msg as non-zero 
+module synch_reg (
+input logic [7:0] d,
+input logic en, 
+input logic sclk,
+input logic rstn,
+output logic [7:0] q
+);
+    always_ff @(negedge sclk or negedge rstn) begin
+        if (!rstn) begin
+            q <= '0;
+        end
+        else begin
+            if (en) begin
+                q <= d;
+            end
+        end
+    end
+endmodule
+
+//Handles main read/write and address logic
+//Also latches signal from previous block
+module read_write (
+input logic [7:0] msg, //message from the s2p_module
+input logic rstn, //from the clock comparator to clear the address pointer
+input logic sclk, //Spi clock 
+output logic [7:0] mux_control_signal //controls the mux which regulates reads out the chosen digital reg
+);
+    //"latched_msg" is the last non-zero value of msg
+    //Name is a little misleading but forgive me
+    logic [7:0] latched_msg;
+    logic latch_en = (msg != '0);
+    synch_reg msg_latcher (.d (msg), .en (latch_en), .sclk (sclk), .rstn (rstn), .q (latched_msg));
+
+    //Logic for addressing registers and writing
+    //UNFINISHED
+    logic [7:0] address_pointer = '0;
+endmodule
