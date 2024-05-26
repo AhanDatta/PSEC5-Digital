@@ -9,11 +9,12 @@ logic [7:0]q;
 
 always_ff @(posedge sclk or negedge rstn) begin
 	if (!rstn) begin
- q<= 8'b00000000;
- end
+ 		q<= 8'b00000000;
+ 	end
  	else begin
-serial_out <= q[0];
-q <= q >> 1;
+		serial_out <= q[0];
+		q <= q >> 1;
+	end
 end
 
 
