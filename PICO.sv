@@ -120,9 +120,13 @@ output logic [7:0] address_pointer //controls the mux which regulates reads out 
 );
     //Logic for addressing registers and writing
     logic address_set;
-    always_latch begin
+    always_ff @(posedge sclk or negedge rstn) begin
         if (!rstn) begin
             address_set = 0;
+            write_data = '0;
+            address_pointer = '0;
+        end
+        else if (msg == '0) begin
         end
         else begin
             if (!address_set) begin
