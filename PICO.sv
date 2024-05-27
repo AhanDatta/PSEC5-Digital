@@ -122,20 +122,20 @@ output logic [7:0] address_pointer //controls the mux which regulates reads out 
     logic address_set;
     always_ff @(posedge sclk or negedge rstn) begin
         if (!rstn) begin
-            address_set = 0;
-            write_data = '0;
-            address_pointer = '0;
+            address_set <= 0;
+            write_data <= '0;
+            address_pointer <= '0;
         end
         else if (msg == '0) begin
         end
         else begin
             if (!address_set) begin
-                address_pointer = msg;
-                write_data = '0;
-                address_set = 1;
+                address_pointer <= msg;
+                write_data <= '0;
+                address_set <= 1;
             end
             else begin
-                write_data = msg;
+                write_data <= msg;
             end
         end
     end
