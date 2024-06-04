@@ -125,6 +125,7 @@ output logic [7:0] address_pointer //controls the mux which regulates reads out 
             end
             else begin
                 write_data <= msg;
+                address_pointer <= address_pointer + 1;
             end
         end
     end
