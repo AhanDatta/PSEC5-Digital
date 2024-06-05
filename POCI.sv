@@ -85,7 +85,7 @@ module mux_59_to_1 (
 endmodule
 
 //8 bit message into serial
-module p2s_shift_register (input logic [7:0] addr, input logic sclk, input logic rstn, output logic serial_out);
+module p2s_register (input logic [7:0] mux_in, input logic sclk, input logic rstn, output logic serial_out);
 
 	logic [2:0] index_pointer; //Points to the index of addr which should be output 
 	
@@ -95,7 +95,7 @@ module p2s_shift_register (input logic [7:0] addr, input logic sclk, input logic
 			index_pointer <= '0;
 		end
 		else begin
-			serial_out <= addr[index_pointer];
+			serial_out <= mux_in[index_pointer];
 			index_pointer <= index_pointer + 1;
 		end
 	end

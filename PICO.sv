@@ -115,7 +115,7 @@ output logic [7:0] address_pointer //controls the mux which regulates reads out 
             write_data <= '0;
             address_pointer <= '0;
         end
-        else if (msg == '0) begin
+        else if (msg == '0) begin //Assume that msg == 0 when it is incomplete because of the buffer_reg
         end
         else begin
             if (!address_set) begin
