@@ -87,14 +87,16 @@ endmodule
 //8 bit message into serial
 module p2s_shift_register (input logic [7:0] addr, input logic sclk, input logic rstn, output logic serial_out);
 
+	logic [2:0] index_pointer; //Points to the index of addr which should be output 
+	
 	always_ff @(posedge sclk or negedge rstn) begin
 		if (!rstn) begin
-			q <= 8'b00000000;
 			serial_out <= 0;
+			index_pointer <= '0;
 		end
 		else begin
-			serial_out <= q[0];
-			q <= q >> 1;
+			serial_out <= addr[index_pointer];
+			index_pointer <= index_pointer + 1;
 		end
 	end
 
