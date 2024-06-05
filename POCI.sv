@@ -17,7 +17,7 @@ module mux_59_to_1 (
 		end
 		else begin
 			unique case (control_signal)
-				8'd0: out = 8'd0;
+				8'd0: out = 8'd0; //Catches the reserved address
 				8'd1: out = reg1;
 				8'd2: out = reg2;
 				8'd3: out = reg3;
@@ -87,15 +87,15 @@ endmodule
 //8 bit message into serial
 module p2s_shift_register (input logic [7:0] addr, input logic sclk, input logic rstn, output logic serial_out);
 
-always_ff @(posedge sclk or negedge rstn) begin
-	if (!rstn) begin
- 		q <= 8'b00000000;
-		serial_out <= 0;
- 	end
- 	else begin
-		serial_out <= q[0];
-		q <= q >> 1;
+	always_ff @(posedge sclk or negedge rstn) begin
+		if (!rstn) begin
+			q <= 8'b00000000;
+			serial_out <= 0;
+		end
+		else begin
+			serial_out <= q[0];
+			q <= q >> 1;
+		end
 	end
-end
 
 endmodule
