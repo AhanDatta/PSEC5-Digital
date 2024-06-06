@@ -1,6 +1,7 @@
 \ include "PICO.sv"
 \ include "POCI.sv"
 
+//This is the full digital SPI communication section
 module SPI (
     input logic serial_in,
     input logic sclk,
