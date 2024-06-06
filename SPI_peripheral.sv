@@ -1,5 +1,5 @@
-\ include "PICO.sv"
-\ include "POCI.sv"
+`include "PICO.sv"
+`include "POCI.sv"
 
 //This is the full digital SPI communication section
 module SPI (

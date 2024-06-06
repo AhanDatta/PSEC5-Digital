@@ -1,7 +1,6 @@
 //The following includes the analog register
 //for SIMULATION ONLY
 
-\ include SPI_peripheral.sv
 
 //This module takes in a 50 bit input, and splits it up into 7 bytes. 
 //Note that the last byte will only have 2 bits inside of it, so the remaining 6 bits will default to 0.
@@ -142,7 +141,7 @@ endmodule
 
 
 module test_SPI (
-    input logic [7:0] ch0, ch1, ch2, ch3, ch4, ch5, ch6, ch7,
+    input logic [49:0] ch0, ch1, ch2, ch3, ch4, ch5, ch6, ch7,
     input logic serial_in,
     input logic sclk, 
     input logic iclk,
