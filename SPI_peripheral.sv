@@ -20,7 +20,7 @@ module SPI (
     logic [7:0] mux_control_signal;
     wire full_rstn = rstn && sclk_stop_rstn;
 
-    PICO input (
+    PICO in (
         .serial_in (serial_in), 
         .sclk (sclk), 
         .iclk (iclk), 
@@ -30,7 +30,7 @@ module SPI (
         .mux_control_signal (mux_control_signal)
     );
 
-    POCI output (
+    POCI out (
         .rstn (sclk), .sclk (sclk), .control_signal (mux_control_signal), .write_data (write_data),
         .reg4 (reg4), .reg5 (reg5), .reg6 (reg6), .reg7 (reg7), .reg8 (reg8), .reg9 (reg9), .reg10 (reg10),
 		.reg11 (reg11), .reg12 (reg12), .reg13 (reg13), .reg14 (reg14), .reg15 (reg15), .reg16 (reg16), .reg17 (reg17),
