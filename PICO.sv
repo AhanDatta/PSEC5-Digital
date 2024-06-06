@@ -109,7 +109,7 @@ output logic [7:0] address_pointer //controls the mux which regulates reads out 
 );
     //Logic for addressing registers and writing
     logic address_set;
-    always_ff @(negedge sclk or negedge rstn) begin //negedge to not be off by a clk cycle from buffer
+    always_ff @(posedge sclk or negedge rstn) begin //this is one clock cycle off from buffer reg; NEED TO FIX
         if (!rstn) begin
             address_set <= 0;
             write_data <= '0;
