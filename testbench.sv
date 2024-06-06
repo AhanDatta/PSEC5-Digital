@@ -24,4 +24,28 @@ class generator;
 
     rand transaction trans;
 
+    //object which will sent transaction to driver
+    mailbox gen2driv;
+
+    //event to signify end of transaction generation
+    event ended; 
+
+    //repeat count for testing
+    int repeat_count;
+
+    function  new (mailbox gen2driv);
+        this.gen2driv = gen2driv;
+    endfunction
+
+    //main task, generates(create and randomizes) the packets and puts into mailbox
+    task main();
+        repeat (repeat_count) begin
+            trans = new();
+            if( !trans.randomize() ) $fatal("Gen:: trans randomization failed"); 
+            gen2driv.put(trans);
+        end
+        -> ended; //end of generation
+  endtask
+
 endclass
+
