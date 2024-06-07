@@ -14,7 +14,7 @@ class transaction;
 
     //Holds a variable length array of input messages
     //Gets converted to serial by the driver
-    logic [7:0] input_bytes [];
+        //logic [7:0] input_bytes [];
     //From the output of the DUT
     //Length should be the same as "input_bytes"
     logic [7:0] output_bytes [];
@@ -50,7 +50,7 @@ class generator;
 
 endclass
 
-interface intf (
+interface mem_intf (
     input logic sclk, //spi clock
     input logic iclk, //internal clock
     input logic rstn, //external reset
@@ -68,11 +68,44 @@ interface intf (
 
     //Holds a variable length array of input messages
     //Gets converted to serial by the driver
-    logic [7:0] input_bytes [];
+        //logic [7:0] input_bytes [];
     //From the output of the DUT
     //Length should be the same as "input_bytes"
     logic [7:0] output_bytes [];
     
+    //driver clocking block
+    clocking driver_cb @(posedge sclk);
+      default input #1 output #1;
+      output output_bytes;
+      output ch0;
+      output ch1;
+      output ch2;
+      output ch3;
+      output ch4;
+      output ch5;
+      output ch6;
+      output ch7;
+    endclocking
+
+//monitor clocking block
+  clocking monitor_cb @(posedge clk);
+    default input #1 output #1;
+    input input_bytes;
+    input ch0;
+    input ch1;
+    input ch2;
+    input ch3;
+    input ch4;
+    input ch5;
+    input ch6;
+    input ch7;
+  endclocking
+
+  //Driver and Monitor Modports
+    modport DRIVER (clocking driver_cb, input sclk, input iclk, input reset);
+    modport MONITOR (clocking monitor_cb, input sclk, input iclk, input reset);
+
+
 endinterface
 
 
@@ -122,7 +155,6 @@ endclass
 
 // This class takes the transactions that are ready and drives them to the DUT
 // So they can then do what they need to do
-
 class driver;
   
   //used to count the number of transactions
@@ -203,7 +235,7 @@ endclass
 
 
 
-//monitor class
+//Environment Class
 `include "transaction.sv"
 `include "generator.sv"
 `include "driver.sv"
@@ -214,7 +246,7 @@ driver driv;
 mailbox gen2driv;
 
 event gen_ended;
-virtual mem_intf, mem_vif; // Virtual interface
+virtual mem_intf mem_vif; // Virtual interface
 
 
 function new(virtual mem_intf, mem_vif);
@@ -253,3 +285,78 @@ endtask
 
 
 endclass
+
+
+// This is the code for the acutal test
+
+`include "environment.sv"
+program test(mem_intf intf);
+//create enviornment
+environment env;
+
+initial begin
+
+  env = new(intf);
+
+
+// Determines the number of transactions that are being created
+env.gen.repeat_count = 10;
+
+//Run it!
+env.run();
+end
+
+endprogram
+
+
+
+
+// This is the top level of the testbench
+// Connects all of this shitty code
+//Specifically this connects the DUT and the Testbench
+
+
+`include "interface.sv"
+`include "random_test.sv"
+module tbench_top
+
+//declare clock and reset
+bit clk;
+bit reset;
+
+always #5 clk = ~clk;
+
+initial begin
+  reset = 1;
+#5 reset = 0;
+end
+
+// Creating an instance of an interface to connect the DUT to the testcase
+mem_intf intf(clk,reset);
+
+// Testcase instance, interface handle is the argument here
+test t1(intf);
+
+//DUT instance, interface signals are connected to DUT ports
+
+memory DUT(
+
+.clk(intf.clk),
+.reset(intf.reset),
+.ch0(intf.ch0),
+.ch1(intf.ch1),
+.ch2(intf.ch2),
+.ch3(intf.ch3),
+.ch4(intf.ch4),
+.ch5(intf.ch5),
+.ch6(intf.ch6),
+.ch7(intf.ch7),
+.output_bytes(intf.output_bytes),
+.input_bytes(intf.input_bytes)
+);
+
+//Wave dump
+initial begin
+  $dumpfile("dump.vcd"); $dumpvars;
+end
+endmodule
