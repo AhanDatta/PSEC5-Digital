@@ -236,9 +236,9 @@ endclass
 
 
 //Environment Class
-`include "transaction.sv"
-`include "generator.sv"
-`include "driver.sv"
+//`include "transaction.sv"
+//`include "generator.sv"
+//`include "driver.sv"
 class environment;
 
 generator gen;
@@ -316,8 +316,8 @@ endprogram
 //Specifically this connects the DUT and the Testbench
 
 
-`include "interface.sv"
-`include "random_test.sv"
+//`include "interface.sv"
+//`include "random_test.sv"
 module tbench_top
 
 //declare clock and reset

@@ -92,4 +92,3 @@ module SPI (
     );
 
 endmodule
-
