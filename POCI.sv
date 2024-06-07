@@ -106,7 +106,9 @@ module POCI (
 	input logic rstn,
 	input logic sclk,
     input logic [7:0] control_signal, //this is the mux select
-	input logic [7:0] write_data, //from the POCI module
+	input logic [7:0] trigger_channel_mask, //address 1
+	input logic [7:0] instruction, //address 2
+	input logic [7:0] mode, //address 3
     input logic [7:0] reg4, reg5, reg6, reg7, reg8, reg9, //we designate reg 1-3 as special w/r
     input logic [7:0] reg10, reg11, reg12, reg13, reg14, reg15, reg16, reg17, reg18, reg19, //all else are read only
     input logic [7:0] reg20, reg21, reg22, reg23, reg24, reg25, reg26, reg27, reg28, reg29,
@@ -117,28 +119,6 @@ module POCI (
 );
 
 	logic [7:0] msgi; //internal data from mux -> p2s reg
-	logic [7:0] trigger_channel_mask; //address 1
-	logic [7:0] instruction; //address 2
-	logic [7:0] mode; //address 3
-
-	//Logic for writing data
-	always_latch begin
-		if (!rstn) begin
-			trigger_channel_mask <= '0;
-			instruction <= '0;
-			mode <= '0;
-		end
-		else if (control_signal == 8'd1) begin
-			trigger_channel_mask <= write_data;
-		end
-		else if (control_signal == 8'd2) begin
-			instruction <= write_data;
-		end
-		else if (control_signal == 8'd3) begin
-			mode <= write_data;
-		end
-		//The else case is null because all other regs are read only
-	end
 
 	//Logic for reading out the data
 	mux_59_to_1 mkx (.rstn (rstn), .control_signal (control_signal), .reg1 (trigger_channel_mask), .reg2 (instruction), .reg3(mode),

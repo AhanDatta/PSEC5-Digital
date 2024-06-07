@@ -37,11 +37,11 @@ output logic [7:0] complete_msg
 
     //Logic for deciding when a message is complete + sending rstn to shift reg
     always_comb begin
-        if (count == 0) begin
+        if (count == '0) begin
             complete_msg = msg;
         end
         else begin
-            complete_msg = 0;
+            complete_msg = '0;
         end
     end
 endmodule 
@@ -143,6 +143,20 @@ output logic [7:0] mux_control_signal //Output control signal for POCI mux
     logic [7:0] msgi; //internal message from s2p -> read_write
     wire full_rstn = rstn && sclk_stop_rstn; //Combines the reset signal from the clock comparator and external reset
     
-    s2p_module serial_to_eight_bit (.serial_in (serial_in), .spi_clk (sclk), .iclk (iclk), .rstn (rstn), .full_msg (msgi), .sclk_stop_rstn (sclk_stop_rstn));
-    read_write eight_bit_to_output (.msg (msgi), .rstn (full_rstn), .sclk (sclk), .write_data (write_data), .address_pointer (mux_control_signal));
+    s2p_module serial_to_eight_bit (
+        .serial_in (serial_in), 
+        .spi_clk (sclk), 
+        .iclk (iclk), 
+        .rstn (rstn), 
+        .full_msg (msgi), 
+        .sclk_stop_rstn (sclk_stop_rstn)
+        );
+
+    read_write eight_bit_to_output (
+        .msg (msgi), 
+        .rstn (full_rstn), 
+        .sclk (sclk), 
+        .write_data (write_data), 
+        .address_pointer (mux_control_signal)
+        );
 endmodule
