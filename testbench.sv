@@ -289,7 +289,7 @@ endclass
 
 // This is the code for the acutal test
 
-`include "environment.sv"
+//`include "environment.sv"
 program test(mem_intf intf);
 //create enviornment
 environment env;

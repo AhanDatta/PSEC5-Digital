@@ -6,10 +6,10 @@ input logic rstn,
 output logic [7:0] msg
 );
     always_ff @(posedge sclk or negedge rstn) begin
-        if (!rstn) begin 
+        if (!rstn) begin
             msg <= '0;
         end
-        else begin 
+        else begin
             msg <= {msg[6:0], serial_in};
         end
     end
@@ -22,29 +22,27 @@ module buffer_register (
 input logic [7:0] msg,
 input logic sclk,
 input logic rstn, //Reset input from the clock comparator
-output logic [7:0] complete_msg
+output logic [7:0] complete_msg,
+output logic msg_flag
 );
 
     logic [2:0] count; //For the clock divider
     always_ff @(posedge sclk or negedge rstn) begin
         if (!rstn) begin
             count <= 0;
+            msg_flag <= 0;
         end
-        else begin 
+        else begin
             count <= count + 1;
+            msg_flag <= latch_en; //off by one clk cycle to fix pipeline
         end
     end
 
-    //Logic for deciding when a message is complete + sending rstn to shift reg
-    always_comb begin
-        if (count == '0) begin
-            complete_msg = msg;
-        end
-        else begin
-            complete_msg = '0;
-        end
-    end
-endmodule 
+    logic latch_en = (count == 0);
+
+    //using a latched reg to hold the data
+    latched_write_reg held_data (.rstn (rstn), .data (msg), .latch_en (latch_en), .stored_data (complete_msg));
+endmodule
 
 //Compares the internal clock and spi clock to see input stops coming in
 //We set arbitrarily that 4 internal clock cycles of no sclk is when serial_in stops
@@ -66,7 +64,7 @@ output logic rstn_out //Goes to the buffer register to reset the clock divider
         else begin
             count <= count + 1;
         end
-    end 
+    end
 
     always_comb begin
         if (count == 7) begin
@@ -80,19 +78,20 @@ endmodule
 
 //Takes serial input and outputs 8bit msg and reset signal if input stops
 module s2p_module (
-input logic serial_in, 
+input logic serial_in,
 input logic spi_clk,
-input logic iclk, //internal 
+input logic iclk, //internal
 input logic rstn, //external reset
 output logic [7:0] full_msg,
-output logic sclk_stop_rstn // reset not from clock comparator -> register
+output logic sclk_stop_rstn, // reset not from clock comparator -> register
+output logic msg_flag //to the read_write module
 );
 
     logic [7:0] msgi; //Internal msg from shift register to buffer reg
-    wire full_rstn = rstn && sclk_stop_rstn;
+    logic full_rstn = rstn && sclk_stop_rstn;
 
     s2p_shift_register shift_reg(.serial_in (serial_in), .sclk (spi_clk), .rstn (full_rstn), .msg (msgi));
-    buffer_register register(.msg (msgi), .sclk (spi_clk), .rstn (full_rstn), .complete_msg (full_msg));
+    buffer_register buffer_reg(.msg (msgi), .sclk (spi_clk), .rstn (full_rstn), .complete_msg (full_msg), .msg_flag (msg_flag));
     clock_comparator comparator(.sclk (spi_clk), .iclk (iclk), .rstn (rstn), .rstn_out (sclk_stop_rstn));
 endmodule
 
@@ -103,25 +102,20 @@ endmodule
 module read_write (
 input logic [7:0] msg, //message from the s2p_module
 input logic rstn, //set every value to zero
-input logic sclk, //Spi clock 
+input logic msg_flag, //flags when the msg from buffer reg changes
 output logic [7:0] write_data, //the data that is output to be written
 output logic [7:0] address_pointer //controls the mux which regulates reads out the chosen digital reg
 );
     //Logic for addressing registers and writing
-    logic address_set;
-    always_ff @(posedge sclk or negedge rstn) begin //this is one clock cycle off from buffer reg; NEED TO FIX
+    always_ff @(posedge msg_flag or negedge rstn) begin //this is one clock cycle off from buffer reg; NEED TO FIX
         if (!rstn) begin
-            address_set <= 0;
             write_data <= '0;
             address_pointer <= '0;
         end
-        else if (msg == '0) begin //Assume that msg == 0 when it is incomplete because of the buffer_reg
-        end
         else begin
-            if (!address_set) begin
+            if (address_pointer == '0) begin
                 address_pointer <= msg;
                 write_data <= '0;
-                address_set <= 1;
             end
             else begin
                 write_data <= msg;
@@ -141,22 +135,24 @@ output logic [7:0] write_data, //Output data to write
 output logic [7:0] mux_control_signal //Output control signal for POCI mux
 ); 
     logic [7:0] msgi; //internal message from s2p -> read_write
-    wire full_rstn = rstn && sclk_stop_rstn; //Combines the reset signal from the clock comparator and external reset
-    
+    logic full_rstn = rstn && sclk_stop_rstn; //Combines the reset signal from the clock comparator and external reset
+    logic msg_flag; //between buffer_reg and read_write
+
     s2p_module serial_to_eight_bit (
-        .serial_in (serial_in), 
-        .spi_clk (sclk), 
-        .iclk (iclk), 
-        .rstn (rstn), 
-        .full_msg (msgi), 
-        .sclk_stop_rstn (sclk_stop_rstn)
+        .serial_in (serial_in),
+        .spi_clk (sclk),
+        .iclk (iclk),
+        .rstn (rstn),
+        .full_msg (msgi),
+        .sclk_stop_rstn (sclk_stop_rstn),
+        .msg_flag (msg_flag)
         );
 
     read_write eight_bit_to_output (
-        .msg (msgi), 
-        .rstn (full_rstn), 
-        .sclk (sclk), 
-        .write_data (write_data), 
+        .msg (msgi),
+        .rstn (full_rstn),
+        .msg_flag (msg_flag),
+        .write_data (write_data),
         .address_pointer (mux_control_signal)
         );
 endmodule
