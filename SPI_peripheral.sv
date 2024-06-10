@@ -54,7 +54,7 @@ module SPI (
     logic [7:0] write_data;
     logic [7:0] mux_control_signal;
     logic [2:0] input_mux_latch_sgnl; 
-    wire full_rstn = rstn && sclk_stop_rstn;
+    logic full_rstn = rstn && sclk_stop_rstn;
 
     //data in the special registers 
     logic [7:0] trigger_channel_mask; //address 1
