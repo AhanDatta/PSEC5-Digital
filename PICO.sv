@@ -36,7 +36,7 @@ output logic msg_flag
 endmodule
 
 //Compares the internal clock and spi clock to see input stops coming in
-//We set arbitrarily that 7 internal clock cycles of no sclk is when serial_in stops
+//We set arbitrarily that 8 internal clock cycles of no sclk is when serial_in stops
 module clock_comparator (
 input logic sclk, //spi clock
 input logic iclk, //internal clock from chip
@@ -44,7 +44,7 @@ input logic rstn, //external reset
 output logic rstn_out //Goes to the buffer register to reset the clock divider
 );
 
-    logic [2:0] count;
+    logic [3:0] count; //4 bit to stop overflow
     always_ff @(posedge iclk, posedge sclk, negedge rstn) begin
         if (!rstn) begin
             count <= 0;
@@ -58,7 +58,7 @@ output logic rstn_out //Goes to the buffer register to reset the clock divider
     end
 
     always_comb begin
-        if (count == 7) begin
+        if (count >= 8) begin
             rstn_out = 0;
         end
         else begin

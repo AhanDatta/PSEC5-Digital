@@ -85,6 +85,7 @@ module mux_59_to_1 (
 endmodule
 
 //8 bit message into serial
+//NOTE: This is a software hack. When synthesized, becomes a regular shift reg
 module p2s_register (input logic [7:0] mux_in, input logic sclk, input logic rstn, output logic serial_out);
 
 	logic [2:0] index_pointer; //Points to the index of addr which should be output 
