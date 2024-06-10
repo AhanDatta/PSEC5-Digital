@@ -15,14 +15,10 @@ output logic [7:0] msg
     end
 endmodule
 
-//Buffers the message with a counter
-//Only sends out final message when it is completed
-//Outputs the reset message back to the shift reg
-module buffer_register (
-input logic [7:0] msg,
+//outputs a flag signal when a msg is complete
+module msg_flag_gen (
 input logic sclk,
 input logic rstn, //Reset input from the clock comparator
-output logic [7:0] complete_msg,
 output logic msg_flag
 );
 
@@ -30,22 +26,17 @@ output logic msg_flag
     always_ff @(posedge sclk or negedge rstn) begin
         if (!rstn) begin
             count <= 0;
-            msg_flag <= 0;
         end
         else begin
             count <= count + 1;
-            msg_flag <= latch_en; //off by one clk cycle to fix pipeline
         end
     end
 
-    logic latch_en = (count == 0);
-
-    //using a latched reg to hold the data
-    latched_write_reg held_data (.rstn (rstn), .data (msg), .latch_en (latch_en), .stored_data (complete_msg));
+    assign msg_flag = (count == 0);
 endmodule
 
 //Compares the internal clock and spi clock to see input stops coming in
-//We set arbitrarily that 4 internal clock cycles of no sclk is when serial_in stops
+//We set arbitrarily that 7 internal clock cycles of no sclk is when serial_in stops
 module clock_comparator (
 input logic sclk, //spi clock
 input logic iclk, //internal clock from chip
@@ -80,18 +71,16 @@ endmodule
 module s2p_module (
 input logic serial_in,
 input logic spi_clk,
-input logic iclk, //internal
+input logic iclk, //internal clock for comparator
 input logic rstn, //external reset
 output logic [7:0] full_msg,
 output logic sclk_stop_rstn, // reset not from clock comparator -> register
 output logic msg_flag //to the read_write module
 );
-
-    logic [7:0] msgi; //Internal msg from shift register to buffer reg
     logic full_rstn = rstn && sclk_stop_rstn;
 
-    s2p_shift_register shift_reg(.serial_in (serial_in), .sclk (spi_clk), .rstn (full_rstn), .msg (msgi));
-    buffer_register buffer_reg(.msg (msgi), .sclk (spi_clk), .rstn (full_rstn), .complete_msg (full_msg), .msg_flag (msg_flag));
+    s2p_shift_register shift_reg(.serial_in (serial_in), .sclk (spi_clk), .rstn (full_rstn), .msg (full_msg));
+    msg_flag_gen buffer_reg(.sclk (spi_clk), .rstn (full_rstn), .msg_flag (msg_flag));
     clock_comparator comparator(.sclk (spi_clk), .iclk (iclk), .rstn (rstn), .rstn_out (sclk_stop_rstn));
 endmodule
 
