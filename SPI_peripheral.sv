@@ -16,21 +16,24 @@ module latched_write_reg (
 endmodule
 
 //Controls the latch for the three special regs based on address
+//Synchronous mux here to stop a double write issue
+//caused by address pointer incrementing too fast
 module input_mux (
     input logic rstn,
     input logic [7:0] addr,
+    input logic sclk, 
     output logic [2:0] latch_signal //carries the latch signal to the correct reg based on address
 );
-    always_comb begin
+    always_ff @(posedge sclk or negedge rstn) begin
         if (!rstn) begin
-            latch_signal = '0;
+            latch_signal <= '0;
         end
         else begin
             unique case (addr)
-                8'd1: latch_signal = 3'b001;
-                8'd2: latch_signal = 3'b010;
-                8'd3: latch_signal = 3'b100;
-                default: latch_signal = 3'b000;
+                8'd1: latch_signal <= 3'b001;
+                8'd2: latch_signal <= 3'b010;
+                8'd3: latch_signal <= 3'b100;
+                default: latch_signal <= 3'b000;
             endcase
         end
     end
@@ -66,7 +69,7 @@ module SPI (
     latched_write_reg instruction_reg (.rstn (full_rstn), .data (write_data), .latch_en (input_mux_latch_sgnl[1]), .stored_data (instruction));
     latched_write_reg mode_reg (.rstn (full_rstn), .data (write_data), .latch_en (input_mux_latch_sgnl[2]), .stored_data (mode));
 
-    input_mux write_mux (.rstn (full_rstn), .addr (mux_control_signal), .latch_signal (input_mux_latch_sgnl));
+    input_mux write_mux (.rstn (full_rstn), .sclk (sclk), .addr (mux_control_signal), .latch_signal (input_mux_latch_sgnl));
 
     PICO in (
         .serial_in (serial_in), 
