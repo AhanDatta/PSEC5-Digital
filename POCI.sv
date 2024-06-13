@@ -86,9 +86,17 @@ endmodule
 
 //8 bit message into serial
 //NOTE: This is a software hack. When synthesized, becomes a regular shift reg
-module p2s_register (input logic [7:0] mux_in, input logic sclk, input logic rstn, output logic serial_out);
+module p2s_register (
+	input logic [7:0] mux_in, 
+	input logic sclk, 
+	input logic rstn, 
+	input logic msg_flag, //from PICO msg_flag_gen
+	output logic serial_out
+	);
 
+	logic [7:0] held_data; //data in latched register
 	logic [2:0] index_pointer; //Points to the index of addr which should be output 
+	latched_write_reg latched_data (.rstn (rstn), .data (mux_in), .latch_en (msg_flag), .stored_data (held_data));
 	
 	always_ff @(posedge sclk or negedge rstn) begin
 		if (!rstn) begin
@@ -96,7 +104,7 @@ module p2s_register (input logic [7:0] mux_in, input logic sclk, input logic rst
 			index_pointer <= '0;
 		end
 		else begin
-			serial_out <= mux_in[index_pointer];
+			serial_out <= held_data[index_pointer];
 			index_pointer <= index_pointer + 1;
 		end
 	end
@@ -106,6 +114,7 @@ endmodule
 module POCI (
 	input logic rstn,
 	input logic sclk,
+	input logic msg_flag, //for output shift reg
     input logic [7:0] control_signal, //this is the mux select
 	input logic [7:0] trigger_channel_mask, //address 1
 	input logic [7:0] instruction, //address 2
@@ -134,6 +143,6 @@ module POCI (
 		.out (msgi)
 	);
 
-	p2s_register output_reg (.mux_in (msgi), .sclk (sclk), .rstn (rstn), .serial_out (serial_out));
+	p2s_register output_reg (.mux_in (msgi), .sclk (sclk), .rstn (rstn), .msg_flag (msg_flag), .serial_out (serial_out));
 
 endmodule

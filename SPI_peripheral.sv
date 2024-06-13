@@ -1,4 +1,5 @@
 //Special registers 1-3 for trigger_ch_mask, instruction, mode
+//also to hold data for serial_out
 module latched_write_reg (
     input logic rstn,
     input logic [7:0] data,
@@ -71,18 +72,22 @@ module SPI (
 
     input_mux write_mux (.rstn (full_rstn), .sclk (sclk), .addr (mux_control_signal), .latch_signal (input_mux_latch_sgnl));
 
+    logic msg_flag; //from msg_flag_gen for readout
+
     PICO in (
         .serial_in (serial_in), 
         .sclk (sclk), 
         .iclk (iclk), 
         .rstn (rstn), //full rstn is computed inside PICO
         .sclk_stop_rstn (sclk_stop_rstn), 
+        .msg_flag (msg_flag),
         .write_data (write_data), 
         .mux_control_signal (mux_control_signal)
     );
 
     POCI out (
-        .rstn (full_rstn), .sclk (sclk), .control_signal (mux_control_signal), .trigger_channel_mask (trigger_channel_mask), .instruction (instruction), .mode (mode),
+        .rstn (full_rstn), .sclk (sclk), .msg_flag (msg_flag),
+        .control_signal (mux_control_signal), .trigger_channel_mask (trigger_channel_mask), .instruction (instruction), .mode (mode),
         .reg4 (reg4), .reg5 (reg5), .reg6 (reg6), .reg7 (reg7), .reg8 (reg8), .reg9 (reg9), .reg10 (reg10),
 		.reg11 (reg11), .reg12 (reg12), .reg13 (reg13), .reg14 (reg14), .reg15 (reg15), .reg16 (reg16), .reg17 (reg17),
 		.reg18 (reg18), .reg19 (reg19), .reg20 (reg20), .reg21 (reg21), .reg22 (reg22), .reg23 (reg23), .reg24 (reg24),
