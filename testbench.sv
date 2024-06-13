@@ -14,7 +14,7 @@ class transaction;
 
     //Holds a variable length array of input messages
     //Gets converted to serial by the driver
-        //logic [7:0] input_bytes [];
+    logic [7:0] input_bytes [];
     //From the output of the DUT
     //Length should be the same as "input_bytes"
     logic [7:0] output_bytes [];
@@ -53,18 +53,20 @@ endclass
 interface mem_intf (
     input logic sclk, //spi clock
     input logic iclk, //internal clock
-    input logic rstn, //external reset
+    input logic rstn //external reset
 );
 
     //Simulates the data sitting in the analog registers
-    rand logic [49:0] ch0;
-    rand logic [49:0] ch1;
-    rand logic [49:0] ch2;
-    rand logic [49:0] ch3;
-    rand logic [49:0] ch4;
-    rand logic [49:0] ch5;
-    rand logic [49:0] ch6;
-    rand logic [49:0] ch7;
+    // NOTE*** These were originally marked as "rand logic [49:0] ch0"
+    // NOTE*** But vivado didn't understand rand, so they are no longer random, IDK what it really wants
+    logic [49:0] ch0;
+    logic [49:0] ch1;
+    logic [49:0] ch2;
+    logic [49:0] ch3;
+    logic [49:0] ch4;
+    logic [49:0] ch5;
+    logic [49:0] ch6;
+    logic [49:0] ch7;
 
     //Holds a variable length array of input messages
     //Gets converted to serial by the driver
@@ -74,9 +76,9 @@ interface mem_intf (
     logic [7:0] output_bytes [];
     
     //driver clocking block
+    // NOTE*** Dynamic variable types are not allowing in the clocking block, so output_bytes is not a valid output type for this block
     clocking driver_cb @(posedge sclk);
       default input #1 output #1;
-      output output_bytes;
       output ch0;
       output ch1;
       output ch2;
@@ -88,9 +90,10 @@ interface mem_intf (
     endclocking
 
 //monitor clocking block
-  clocking monitor_cb @(posedge clk);
+//NOTE*** Input_bytes is commented out as it's not reccognized curerntly, unsure why
+  clocking monitor_cb @(posedge sclk);
     default input #1 output #1;
-    input input_bytes;
+   //input input_bytes;
     input ch0;
     input ch1;
     input ch2;
@@ -102,8 +105,8 @@ interface mem_intf (
   endclocking
 
   //Driver and Monitor Modports
-    modport DRIVER (clocking driver_cb, input sclk, input iclk, input reset);
-    modport MONITOR (clocking monitor_cb, input sclk, input iclk, input reset);
+    modport DRIVER (clocking driver_cb, input sclk, input iclk, input rstn);
+    modport MONITOR (clocking monitor_cb, input sclk, input iclk, input rstn);
 
 
 endinterface
@@ -155,6 +158,7 @@ endclass
 
 // This class takes the transactions that are ready and drives them to the DUT
 // So they can then do what they need to do
+
 class driver;
   
   //used to count the number of transactions
@@ -178,14 +182,14 @@ class driver;
   task reset;
     wait(mem_vif.reset);
     $display("--------- [DRIVER] Reset Started ---------");
-    `DRIV_IF.ch0 <= 0;
-    `DRIV_IF.ch1 <= 0;
-    `DRIV_IF.ch2 <= 0;
-    `DRIV_IF.ch3 <= 0;
-    `DRIV_IF.ch4 <= 0;
-    `DRIV_IF.ch5 <= 0;
-    `DRIV_IF.ch6 <= 0;
-    `DRIV_IF.ch7 <= 0;
+    DRIV_IF.ch0 <= 0;
+    DRIV_IF.ch1 <= 0;
+    DRIV_IF.ch2 <= 0;
+    DRIV_IF.ch3 <= 0;
+    DRIV_IF.ch4 <= 0;
+    DRIV_IF.ch5 <= 0;
+    DRIV_IF.ch6 <= 0;
+    DRIV_IF.ch7 <= 0;
           
     wait(!mem_vif.reset);
     $display("--------- [DRIVER] Reset Ended---------");
@@ -195,19 +199,19 @@ class driver;
   task drive;
     forever begin
       transaction trans;
-      `DRIV_IF.input_bytes <= 0;
-      `DRIV_IF.output_bytes <= 0;
+       DRIV_IF.input_bytes <= 0;
+       DRIV_IF.output_bytes <= 0;
       gen2driv.get(trans);
       $display("--------- [DRIVER-TRANSFER: %0d] ---------",no_transactions);
       @(posedge mem_vif.DRIVER.clk);
-        `DRIV_IF.ch0 <= trans.ch0;
-        `DRIV_IF.ch1 <= trans.ch1;
-        `DRIV_IF.ch2 <= trans.ch2;
-        `DRIV_IF.ch3 <= trans.ch3;
-        `DRIV_IF.ch4 <= trans.ch4;
-        `DRIV_IF.ch5 <= trans.ch5;
-        `DRIV_IF.ch6 <= trans.ch6;
-        `DRIV_IF.ch7 <= trans.ch7;
+        DRIV_IF.ch0 <= trans.ch0;
+        DRIV_IF.ch1 <= trans.ch1;
+        DRIV_IF.ch2 <= trans.ch2;
+        DRIV_IF.ch3 <= trans.ch3;
+        DRIV_IF.ch4 <= trans.ch4;
+        DRIV_IF.ch5 <= trans.ch5;
+        DRIV_IF.ch6 <= trans.ch6;
+        DRIV_IF.ch7 <= trans.ch7;
      /* if(trans.input_bytes) begin
         `DRIV_IF.input_bytes <= trans.input_bytes;
         $display("\tADDR = %0h \tWDATA = %0h",trans.ch0,trans.ch1, trans.ch2,  trans.ch3,  trans.ch4,  trans.ch5,  trans.ch6,  trans.ch7,);
@@ -229,12 +233,6 @@ class driver;
          
 endclass
 
-
-
-
-
-
-
 //Environment Class
 //`include "transaction.sv"
 //`include "generator.sv"
@@ -249,18 +247,18 @@ event gen_ended;
 virtual mem_intf mem_vif; // Virtual interface
 
 
-function new(virtual mem_intf, mem_vif);
+function new(mem_intf);
 this.mem_vif = mem_vif; // Getting the interface from the test
 
 gen2driv = new(); // Making new mailbox with shared handle
-gen = new(gen2driv, gen_ended); // Creating the generator
+gen = new(gen_ended); // Creating the generator
 driv = new(mem_vif, gen2driv); // Creating the driver
 endfunction;
 
 
 //Creating tasks in order to access generator and driver more easily
 task pre_test()
-driv.reset();
+driv.rstn (); // reset function contained in code file, not testbench
 endtask
 
 task test();
@@ -276,11 +274,11 @@ task post_test();
 endtask
 
 // Run everything
-task run;
+task run();
     pre_test();
     test();
-    post_test()
-    $finish
+    post_test();
+    $finish ;
 endtask
 
 
@@ -318,10 +316,10 @@ endprogram
 
 //`include "interface.sv"
 //`include "random_test.sv"
-module tbench_top
+module tbench_top ;
 
 //declare clock and reset
-bit clk;
+reg clk;
 bit reset;
 
 always #5 clk = ~clk;
@@ -360,3 +358,86 @@ initial begin
   $dumpfile("dump.vcd"); $dumpvars;
 end
 endmodule
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// Here are 2 classes that may be necessary, but I'm not sure of their importance yet, so they will be commented our here until necessary
+/*
+
+class monitor;
+virtual switch_if vif;
+mailbox scb_mbx;
+semaphore sema4;
+
+
+function new();
+  sema4 = new(1);
+endfunction
+
+task run();
+    $display ("T=%0t [Monitor] starting... ", $time);
+
+  fork
+    sample_port("Thread0");
+    sample_port("Thread1");
+  join
+endtask
+
+  task sample_port(string tag="");
+
+  forever begin
+    @(posedge vif.clk);
+      if (if.rstn & vif.vld) begin
+        switch_item item = new;
+        sema4.get();
+        item.ch0 = vid.ch0;
+        item.ch1 = vid.ch1;
+        item.ch2 = vid.ch2;
+        item.ch3 = vid.ch3;
+        item.ch4 = vid.ch4;
+        item.ch5 = vid.ch5;
+        item.ch6 = vid.ch6;
+        item.ch7 = vid.ch7;
+$display ("T=%0t []Monitor %s First part over", $time, tag);
+
+@(posedge vif.clk);
+sema4.put();
+item.ch0 = vif.ch0;
+item.ch1 = vif.ch1
+item.ch2 = vif.ch2;
+item.ch3 = vif.ch3;
+item.ch4 = vif.ch4;
+item.ch5 = vif.ch5;
+item.ch6 = vif.ch6;
+item.ch7 = vif.ch7;
+
+
+
+
+endclass
+
+
+
+class scoreboard
+
+endclass
+
+*/
