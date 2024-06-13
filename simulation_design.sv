@@ -1,6 +1,6 @@
 //The following includes the analog register
+//attatches to the synthesizable digital SPI block
 //for SIMULATION ONLY
-
 
 //This module takes in a 50 bit input, and splits it up into 7 bytes. 
 //Note that the last byte will only have 2 bits inside of it, so the remaining 6 bits will default to 0.

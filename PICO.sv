@@ -1,6 +1,7 @@
 //This is the overview for the logic in this file
 //Each packet of information comes in a byte, organized and sent to places on the following scheme
-// 8bit -> logic (first 8bit -> pointer for reg number, next 8 -> data, increment register, repeat until msg stop)
+//serial in -> packed into byte sized message -> (if address pntr not set), set address pntr, (else), write the data and increment address pntr
+//Top level module at the bottom to put everything together
 
 //At each clock pulse, adds the serial input to the end of the current 8bit message
 module s2p_shift_register (

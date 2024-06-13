@@ -1,3 +1,8 @@
+//This file controls the readout portion of the SPI peripheral
+//There are 59 registers of data sitting around, 
+//the first 3 are special r/w regs, as per Jin's address table
+//Based on the address pointer from PICO, reads out the held data in serial
+
 //Controls the output of 56 reg long green buffer using mux_control_signal
 module mux_59_to_1 (
 	input logic rstn,

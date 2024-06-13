@@ -1,3 +1,9 @@
+//This file rolls up the whole SPI Peripheral 
+//Serial data is sent into PICO
+//packaged data comes out, and is used to read and write.
+//The writing logic is handled in this file under SPI using standard latched regs
+//The read logic is handled by the POCI block. 
+
 //Special registers 1-3 for trigger_ch_mask, instruction, mode
 //also to hold data for serial_out
 module latched_write_reg (
