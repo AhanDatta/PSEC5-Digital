@@ -1,3 +1,7 @@
+//This is the overview for the logic in this file
+//Each packet of information comes in a byte, organized and sent to places on the following scheme
+// 8bit -> logic (first 8bit -> pointer for reg number, next 8 -> data, increment register, repeat until msg stop)
+
 //At each clock pulse, adds the serial input to the end of the current 8bit message
 module s2p_shift_register (
 input logic serial_in,
@@ -36,7 +40,7 @@ output logic msg_flag
 endmodule
 
 //Compares the internal clock and spi clock to see input stops coming in
-//We set arbitrarily that 8 internal clock cycles of no sclk is when serial_in stops
+//We set arbitrarily that 7 internal clock cycles of no sclk is when serial_in stops
 module clock_comparator (
 input logic sclk, //spi clock
 input logic iclk, //internal clock from chip
@@ -44,7 +48,8 @@ input logic rstn, //external reset
 output logic rstn_out //Goes to the buffer register to reset the clock divider
 );
 
-    logic [3:0] count; //4 bit to stop overflow
+    logic [2:0] count; //how many iclk cycles since last sclk
+    logic rstn_done; //tracks if a reset has already been sent out after some transaction
     always_ff @(posedge iclk, posedge sclk, negedge rstn) begin
         if (!rstn) begin
             count <= 0;
@@ -57,12 +62,29 @@ output logic rstn_out //Goes to the buffer register to reset the clock divider
         end
     end
 
+    //reset logic based on count
     always_comb begin
-        if (count >= 8) begin
+        if (rstn_done) begin
+            rstn_out = 1;
+        end
+        else if (count == 7) begin
             rstn_out = 0;
         end
         else begin
             rstn_out = 1;
+        end
+    end
+
+    //tracks if a reset has already been sent for this transaction
+    always_latch begin
+        if (!rstn) begin
+            rstn_done = 0;
+        end
+        else if (sclk) begin
+            rstn_done = 0;
+        end
+        else if (count == 7) begin
+            rstn_done = 1;
         end
     end
 endmodule
@@ -84,8 +106,6 @@ output logic msg_flag //to the read_write module
     clock_comparator comparator(.sclk (spi_clk), .iclk (iclk), .rstn (rstn), .rstn_out (sclk_stop_rstn));
 endmodule
 
-// 8bit -> logic (first 8bit -> pointer for reg number, next 8 -> data, increment register, repeat until msg stop)
-
 //Handles main read/write and address logic
 //Needs to have a reset come in to initialize values
 module read_write (
@@ -98,7 +118,7 @@ output logic [7:0] address_pointer //controls the mux which regulates reads out 
     //Logic for addressing registers and writing
     always_ff @(posedge msg_flag or negedge rstn) begin //this is one clock cycle off from buffer reg; NEED TO FIX
         if (!rstn) begin
-            write_data <= '0;
+            //write_data <= '0; Don't want this because want to maintain data in w/r regs after transaction
             address_pointer <= '0;
         end
         else begin
