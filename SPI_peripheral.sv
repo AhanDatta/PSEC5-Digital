@@ -66,9 +66,10 @@ module SPI (
     logic [7:0] mode; //address 3
 
     //instantiating the special w/r registers
-    latched_write_reg trigger_ch_mask_reg (.rstn (full_rstn), .data (write_data), .latch_en (input_mux_latch_sgnl[0]), .stored_data (trigger_channel_mask));
-    latched_write_reg instruction_reg (.rstn (full_rstn), .data (write_data), .latch_en (input_mux_latch_sgnl[1]), .stored_data (instruction));
-    latched_write_reg mode_reg (.rstn (full_rstn), .data (write_data), .latch_en (input_mux_latch_sgnl[2]), .stored_data (mode));
+    //only use external rstn for these to not zero the data out after we stop writing
+    latched_write_reg trigger_ch_mask_reg (.rstn (rstn), .data (write_data), .latch_en (input_mux_latch_sgnl[0]), .stored_data (trigger_channel_mask));
+    latched_write_reg instruction_reg (.rstn (rstn), .data (write_data), .latch_en (input_mux_latch_sgnl[1]), .stored_data (instruction));
+    latched_write_reg mode_reg (.rstn (rstn), .data (write_data), .latch_en (input_mux_latch_sgnl[2]), .stored_data (mode));
 
     input_mux write_mux (.rstn (full_rstn), .sclk (sclk), .addr (mux_control_signal), .latch_signal (input_mux_latch_sgnl));
 
