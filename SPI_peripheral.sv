@@ -60,11 +60,16 @@ module SPI (
     input logic [7:0] reg50, reg51, reg52, reg53, reg54, reg55, reg56, reg57, reg58, reg59,
     output logic serial_out
 );
+    //different kinds of reset
     logic sclk_stop_rstn;
+    logic full_rstn = rstn && sclk_stop_rstn; 
+
+    //Data from PICO to registers and POCI
     logic [7:0] write_data;
     logic [7:0] mux_control_signal;
-    logic [2:0] input_mux_latch_sgnl; 
-    logic full_rstn = rstn && sclk_stop_rstn;
+
+    logic [2:0] input_mux_latch_sgnl; //Uses mux_control_signal to select reg to write to
+    logic msg_flag; //from msg_flag_gen for readout
 
     //data in the special registers 
     logic [7:0] trigger_channel_mask; //address 1
@@ -78,8 +83,6 @@ module SPI (
     latched_write_reg mode_reg (.rstn (rstn), .data (write_data), .latch_en (input_mux_latch_sgnl[2]), .stored_data (mode));
 
     input_mux write_mux (.rstn (full_rstn), .sclk (sclk), .addr (mux_control_signal), .latch_signal (input_mux_latch_sgnl));
-
-    logic msg_flag; //from msg_flag_gen for readout
 
     PICO in (
         .serial_in (serial_in), 
