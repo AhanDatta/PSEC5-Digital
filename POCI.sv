@@ -1,3 +1,8 @@
+//This file controls the readout portion of the SPI peripheral
+//There are 59 registers of data sitting around, 
+//the first 3 are special r/w regs, as per Jin's address table
+//Based on the address pointer from PICO, reads out the held data in serial
+
 //Controls the output of 56 reg long green buffer using mux_control_signal
 module mux_59_to_1 (
 	input logic rstn,
@@ -85,9 +90,18 @@ module mux_59_to_1 (
 endmodule
 
 //8 bit message into serial
-module p2s_register (input logic [7:0] mux_in, input logic sclk, input logic rstn, output logic serial_out);
+//NOTE: This is a software hack. When synthesized, becomes a regular shift reg
+module p2s_register (
+	input logic [7:0] mux_in, 
+	input logic sclk, 
+	input logic rstn, 
+	input logic msg_flag, //from PICO msg_flag_gen
+	output logic serial_out
+	);
 
+	logic [7:0] held_data; //data in latched register
 	logic [2:0] index_pointer; //Points to the index of addr which should be output 
+	latched_write_reg latched_data (.rstn (rstn), .data (mux_in), .latch_en (msg_flag), .stored_data (held_data));
 	
 	always_ff @(posedge sclk or negedge rstn) begin
 		if (!rstn) begin
@@ -95,7 +109,7 @@ module p2s_register (input logic [7:0] mux_in, input logic sclk, input logic rst
 			index_pointer <= '0;
 		end
 		else begin
-			serial_out <= mux_in[index_pointer];
+			serial_out <= held_data[index_pointer];
 			index_pointer <= index_pointer + 1;
 		end
 	end
@@ -105,8 +119,11 @@ endmodule
 module POCI (
 	input logic rstn,
 	input logic sclk,
+	input logic msg_flag, //for output shift reg
     input logic [7:0] control_signal, //this is the mux select
-	input logic [7:0] write_data, //from the POCI module
+	input logic [7:0] trigger_channel_mask, //address 1
+	input logic [7:0] instruction, //address 2
+	input logic [7:0] mode, //address 3
     input logic [7:0] reg4, reg5, reg6, reg7, reg8, reg9, //we designate reg 1-3 as special w/r
     input logic [7:0] reg10, reg11, reg12, reg13, reg14, reg15, reg16, reg17, reg18, reg19, //all else are read only
     input logic [7:0] reg20, reg21, reg22, reg23, reg24, reg25, reg26, reg27, reg28, reg29,
@@ -117,28 +134,6 @@ module POCI (
 );
 
 	logic [7:0] msgi; //internal data from mux -> p2s reg
-	logic [7:0] trigger_channel_mask; //address 1
-	logic [7:0] instruction; //address 2
-	logic [7:0] mode; //address 3
-
-	//Logic for writing data
-	always_latch begin
-		if (!rstn) begin
-			trigger_channel_mask <= '0;
-			instruction <= '0;
-			mode <= '0;
-		end
-		else if (control_signal == 8'd1) begin
-			trigger_channel_mask <= write_data;
-		end
-		else if (control_signal == 8'd2) begin
-			instruction <= write_data;
-		end
-		else if (control_signal == 8'd3) begin
-			mode <= write_data;
-		end
-		//The else case is null because all other regs are read only
-	end
 
 	//Logic for reading out the data
 	mux_59_to_1 mkx (.rstn (rstn), .control_signal (control_signal), .reg1 (trigger_channel_mask), .reg2 (instruction), .reg3(mode),
@@ -153,6 +148,6 @@ module POCI (
 		.out (msgi)
 	);
 
-	p2s_register output_reg (.mux_in (msgi), .sclk (sclk), .rstn (rstn), .serial_out (serial_out));
+	p2s_register output_reg (.mux_in (msgi), .sclk (sclk), .rstn (rstn), .msg_flag (msg_flag), .serial_out (serial_out));
 
 endmodule
