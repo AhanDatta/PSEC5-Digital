@@ -1,12 +1,20 @@
 `include "interface.sv"
 `include "test.sv"
+`timescale 1ps/1ps
 
 module tbench_top;
 
-    intf i_intf;
+    //clock for simulation
+    logic clk;
+    always #10 clk = ~clk;
+
+    intf i_intf(clk);
     test t1(i_intf);
 
     SPI spi_1(
+      .sclk (i_intf.sclk),
+      .iclk (i_intf.iclk),
+      .rstn (i_intf.rstn),
       .ch0(i_intf.ch0),
       .ch1(i_intf.ch1),
       .ch2(i_intf.ch2),
@@ -21,7 +29,8 @@ module tbench_top;
 
 
     initial begin;
-    $dumpfile("dump.vcd"); $dumpvars;
+      //NEED TO ADD REST HERE
+      $dumpfile("dump.vcd"); $dumpvars;
     end
   
 endmodule

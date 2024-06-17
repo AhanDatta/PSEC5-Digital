@@ -3,6 +3,7 @@ interface intf(input logic clk);
 
   logic rstn;
   logic iclk;
+  logic sclk;
   logic ch0;
   logic ch1;
   logic ch2;
