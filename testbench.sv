@@ -18,7 +18,7 @@ class transaction;
 
   function void display(string tag);
     $display ("----------------");
-    $display ("%s", string);
+    $display ("tag= %s", tag);
     $display ("----------------");
     $display ("ch 0 = %0d, ch 1 = %0d, ch 2 = %0d, ch 3 = %0d, ch 4 = %0d, ch 5 = %0d, ch 6 = %0d, ch 7 = %0d, ", ch0, ch1, ch2, ch3, ch4, ch5, ch6, ch7);
     $display ("serial_in = %0d, serial_out = %0d", serial_in, serial_out);
@@ -57,9 +57,11 @@ endclass
 
 
 
+// Interface with DUT to the rest of the system, includes all inputs and outputs
+interface intf(input logic clk);
 
-interface intf();
-
+  logic rstn;
+  logic iclk;
   logic ch0;
   logic ch1;
   logic ch2;
@@ -69,7 +71,7 @@ interface intf();
   logic ch6;
   logic ch7;
   logic serial_in;
-  logic serial-out;
+  logic serial_out;
 
 //***NEED TO INCLUDE CLOCKING BLOCKS AND MODPORTS!!!
 
@@ -182,14 +184,13 @@ mailbox mon2scb;
     this.mon2scb = mon2scb;
   endfunction
 
-  task main()
-      transaction trans;
+  task main();
+        transaction trans;
     repeat(1)
     begin
         mon2scb.get(trans);
         $display("Everything went through! We need to include logic here to verify the codes validity tho");
-        trans.display("Scoreboard")
-
+        trans.display("Scoreboard");
     end
 
   endtask
@@ -249,7 +250,7 @@ program test(intf i_intf);
 
     initial 
     begin
-      env = new(intf);
+      env = new(i_intf);
       env.run();
     end
 
@@ -280,7 +281,6 @@ module tbench_top;
     end
   
 endmodule
-
 
 
 
