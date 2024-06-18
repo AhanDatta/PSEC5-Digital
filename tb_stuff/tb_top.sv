@@ -11,7 +11,7 @@ module tbench_top;
     intf i_intf(clk);
     test t1(i_intf);
 
-    SPI spi_1(
+    test_SPI spi_1(
       .sclk (i_intf.sclk),
       .iclk (i_intf.iclk),
       .rstn (i_intf.rstn),

@@ -1,3 +1,5 @@
+`timescale 1ps/1ps
+
 //The following includes the analog register
 //attatches to the synthesizable digital SPI block
 //for SIMULATION ONLY
@@ -452,7 +454,7 @@ module split_50bit (
     assign byte3 = data_in[31:24];
     assign byte4 = data_in[39:32];
     assign byte5 = data_in[47:40];
-    assign byte6 = data_in[49:48]; // Only the 2 most significant bits remain
+    assign byte6 = {6'b0,data_in[49:48]}; // Only the 2 most significant bits remain
 
 endmodule
 
@@ -467,7 +469,7 @@ module analog_to_mixed_reg (
 	output logic [7:0] d40, d41, d42, d43, d44, d45, d46,
 	output logic [7:0] d50, d51, d52, d53, d54, d55, d56,
 	output logic [7:0] d60, d61, d62, d63, d64, d65, d66,
-	output logic [7:0] d70, d71, d72, d73, d74, d75, d76,
+	output logic [7:0] d70, d71, d72, d73, d74, d75, d76
 );
 
 // Splitting of Channel 0

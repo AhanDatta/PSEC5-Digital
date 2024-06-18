@@ -22,7 +22,14 @@ module hack_tb();
   logic serial_in;
   logic serial_out;
 
-  SPI spi_1 (
+  //setting all values
+  //can change to test if it matters (it shouldn't)
+  logic [7:0] tcm_data = 8'h10;
+  logic [7:0] instruction_data = 8'h20;
+  logic [7:0] mode_data = 8'h30;
+  logic [7:0] last_read_byte;
+
+  test_SPI spi_1 (
     .sclk (sclk),
     .iclk (iclk),
     .rstn (rstn),
@@ -37,6 +44,7 @@ module hack_tb();
     .serial_in (serial_in),
     .serial_out (serial_out)
   );
+
 
   //external reseting the chip
   task ext_reset ();
@@ -75,15 +83,7 @@ endtask
 initial begin;
   clk = 0;
   ext_reset(); //setting up chip
-  logic [7:0] last_read_byte;
-
-  //setting all values
-  //can change to test if it matters (it shouldn't)
-  logic [7:0] tcm_data = 8'h10;
-  logic [7:0] instruction_data = 8'h20;
-  logic [7:0] mode_data = 8'h30;
-  iclk = 0;
-  serial_in = 0;
+  
   ch0 = 50'h2D2D2D2D2D2D3; //10 11010010 11010010 11010010 11010010 11010010 11010011
   ch1 = 50'h331CC731CC731; //11 00110001 11001100 01110011 00011100 11000111 00110001
   ch2 = 50'h0; //00 00000000 00000000 00000000 00000000 00000000 00000000
@@ -92,6 +92,9 @@ initial begin;
   ch5 = 50'h368B1FD2849DE; //11 01101000 10110001 11111101 00101000 01001001 11011110
   ch6 = 50'h8A62B251A880; //00 10001010 01100010 10110010 01010001 10101000 10000000
   ch7 = 50'hE2E112A26C51; //00 11100010 11100001 00010010 10100010 01101100 01010001
+
+  iclk = 0;
+  serial_in = 0;
 
   //Case 1: Writing to registers
   send_serial_data(8'h01, 1, last_read_byte); //set address pointer to 1
@@ -116,7 +119,7 @@ initial begin;
   //ch0
   for (int i = 0; i < 41; i += 8) begin
     send_serial_data(8'h0, 1, last_read_byte);
-    assert(last_read_byte == ch0[(i+7):i]);
+    assert(last_read_byte == ch0[i +: 8]);
   end
   send_serial_data(8'h0, 1, last_read_byte);
   assert(last_read_byte == {6'b0, ch0[49:48]});
@@ -124,7 +127,7 @@ initial begin;
   //ch1
   for (int i = 0; i < 41; i += 8) begin
     send_serial_data(8'h0, 1, last_read_byte);
-    assert(last_read_byte == ch1[(i+7):i]);
+    assert(last_read_byte == ch1[i +: 8]);
   end
   send_serial_data(8'h0, 1, last_read_byte);
   assert(last_read_byte == {6'b0, ch1[49:48]});
@@ -132,7 +135,7 @@ initial begin;
   //ch2
   for (int i = 0; i < 41; i += 8) begin
     send_serial_data(8'h0, 1, last_read_byte);
-    assert(last_read_byte == ch2[(i+7):i]);
+    assert(last_read_byte == ch2[i +: 8]);
   end
   send_serial_data(8'h0, 1, last_read_byte);
   assert(last_read_byte == {6'b0, ch2[49:48]});
@@ -140,7 +143,7 @@ initial begin;
   //ch3
   for (int i = 0; i < 41; i += 8) begin
     send_serial_data(8'h0, 1, last_read_byte);
-    assert(last_read_byte == ch3[(i+7):i]);
+    assert(last_read_byte == ch3[i +: 8]);
   end
   send_serial_data(8'h0, 1, last_read_byte);
   assert(last_read_byte == {6'b0, ch3[49:48]});
@@ -148,7 +151,7 @@ initial begin;
   //ch4
   for (int i = 0; i < 41; i += 8) begin
     send_serial_data(8'h0, 1, last_read_byte);
-    assert(last_read_byte == ch4[(i+7):i]);
+    assert(last_read_byte == ch4[i +: 8]);
   end
   send_serial_data(8'h0, 1, last_read_byte);
   assert(last_read_byte == {6'b0, ch4[49:48]});
@@ -156,7 +159,7 @@ initial begin;
   //ch5
   for (int i = 0; i < 41; i += 8) begin
     send_serial_data(8'h0, 1, last_read_byte);
-    assert(last_read_byte == ch5[(i+7):i]);
+    assert(last_read_byte == ch5[i +: 8]);
   end
   send_serial_data(8'h0, 1, last_read_byte);
   assert(last_read_byte == {6'b0, ch5[49:48]});
@@ -164,7 +167,7 @@ initial begin;
   //ch6
   for (int i = 0; i < 41; i += 8) begin
     send_serial_data(8'h0, 1, last_read_byte);
-    assert(last_read_byte == ch6[(i+7):i]);
+    assert(last_read_byte == ch6[i +: 8]);
   end
   send_serial_data(8'h0, 1, last_read_byte);
   assert(last_read_byte == {6'b0, ch6[49:48]});
@@ -172,7 +175,7 @@ initial begin;
   //ch7
   for (int i = 0; i < 41; i += 8) begin
     send_serial_data(8'h0, 1, last_read_byte);
-    assert(last_read_byte == ch7[(i+7):i]);
+    assert(last_read_byte == ch7[i +: 8]);
   end
   send_serial_data(8'h0, 1, last_read_byte);
   assert(last_read_byte == {6'b0, ch7[49:48]});
