@@ -2,7 +2,6 @@
 //Each packet of information comes in a byte, organized and sent to places on the following scheme
 //serial in -> packed into byte sized message -> (if address pntr not set), set address pntr, (else), write the data and increment address pntr
 //Top level module at the bottom to put everything together
-`timescale 1ns/1ps
 
 //At each clock pulse, adds the serial input to the end of the current 8bit message
 module s2p_shift_register (

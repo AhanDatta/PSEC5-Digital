@@ -108,5 +108,4 @@ module SPI (
 		.reg53 (reg53), .reg54 (reg54), .reg55 (reg55), .reg56 (reg56), .reg57 (reg57), .reg58 (reg58), .reg59 (reg59),
         .serial_out (serial_out)
     );
-
 endmodule
