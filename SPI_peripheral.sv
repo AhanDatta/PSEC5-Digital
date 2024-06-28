@@ -62,7 +62,7 @@ module SPI (
 );
     //different kinds of reset
     logic sclk_stop_rstn;
-    logic full_rstn = rstn && sclk_stop_rstn; 
+    logic full_rstn = rstn & sclk_stop_rstn; 
 
     //Data from PICO to registers and POCI
     logic [7:0] write_data;
