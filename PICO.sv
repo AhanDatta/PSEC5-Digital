@@ -100,7 +100,14 @@ output logic [7:0] full_msg,
 output logic sclk_stop_rstn, // reset not from clock comparator -> register
 output logic msg_flag //to the read_write module
 );
-    logic full_rstn = rstn & sclk_stop_rstn;
+
+    logic full_rstn;
+
+    always_comb 
+        begin
+            full_rstn = rstn & sclk_stop_rstn;  
+        end
+    
 
     s2p_shift_register shift_reg(.serial_in (serial_in), .sclk (spi_clk), .rstn (full_rstn), .msg (full_msg));
     msg_flag_gen buffer_reg(.sclk (spi_clk), .rstn (full_rstn), .msg_flag (msg_flag));
@@ -145,9 +152,17 @@ output logic msg_flag, //between buffer_reg and read_write, and to readout shift
 output logic [7:0] write_data, //Output data to write
 output logic [7:0] mux_control_signal //Output control signal for POCI mux
 ); 
-    logic [7:0] msgi; //internal message from s2p -> read_write
-    logic full_rstn = rstn & sclk_stop_rstn; //Combines the reset signal from the clock comparator and external reset
 
+logic [7:0] msgi; //internal message from s2p -> read_write
+logic full_rstn;
+    
+    always_comb 
+        begin
+        
+            full_rstn = rstn & sclk_stop_rstn; //Combines the reset signal from the clock comparator and external reset
+            
+    end
+        
     s2p_module serial_to_eight_bit (
         .serial_in (serial_in),
         .spi_clk (sclk),
