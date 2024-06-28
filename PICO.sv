@@ -156,11 +156,8 @@ output logic [7:0] mux_control_signal //Output control signal for POCI mux
 logic [7:0] msgi; //internal message from s2p -> read_write
 logic full_rstn;
     
-    always_comb 
-        begin
-        
-            full_rstn = rstn & sclk_stop_rstn; //Combines the reset signal from the clock comparator and external reset
-            
+    always_comb begin
+            full_rstn = rstn & sclk_stop_rstn; //Combines the reset signal from the clock comparator and external reset   
     end
         
     s2p_module serial_to_eight_bit (
