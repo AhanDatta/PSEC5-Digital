@@ -46,18 +46,133 @@ module input_mux (
     end
 endmodule
 
+//Converts mux_control_signal into correct load_cnt_ser flag for analog reg
+//Also sets select_reg to read the correct byte from the chosen analog reg
+module convert_addr (
+    input logic rstn,
+    input logic [7:0] mux_control_signal,
+    output logic [7:0] load_cnt_ser,
+    output logic [2:0] select_reg
+);
+    always_comb begin
+        if (!rstn) begin
+            load_cnt_ser = 8'b0;
+            select_reg = 3'b0;
+        end
+        else begin
+            //Setting load_cnt_ser flag with LUT
+            if (mux_control_signal <= 3) begin //address sent to W reg
+                load_cnt_ser = 8'b0;
+            end
+            else if (mux_control_signal <= 10) begin
+                load_cnt_ser = 8'b0000 0001;
+            end
+            else if (mux_control_signal <= 17) begin
+                load_cnt_ser = 8'b0000 0010;
+            end
+            else if (mux_control_signal <= 24) begin
+                load_cnt_ser = 8'b0000 0100;
+            end
+            else if (mux_control_signal <= 31) begin
+                load_cnt_ser = 8'b0000 1000;
+            end
+            else if (mux_control_signal <= 38) begin
+                load_cnt_ser = 8'b0001 0000;
+            end
+            else if (mux_control_signal <= 45) begin
+                load_cnt_ser = 8'b0010 0000;
+            end
+            else if (mux_control_signal <= 52) begin
+                load_cnt_ser = 8'b0100 0000;
+            end
+            else if (mux_control_signal <= 59) begin
+                load_cnt_ser = 8'b1000 0000;
+            end
+            else begin //invalid address case
+                load_cnt_ser = 8'b0;
+            end
+
+            //Sets select_reg with LUT
+            //Uses formula select_reg = (mux_control_signal - 4) % 7
+            case (mux_control_signal)
+                8'b00000000: select_reg = 3'b111;
+                8'b00000001: select_reg = 3'b111;
+                8'b00000010: select_reg = 3'b111;
+                8'b00000011: select_reg = 3'b111;
+                8'b00000100: select_reg = 3'b000;
+                8'b00000101: select_reg = 3'b001;
+                8'b00000110: select_reg = 3'b010;
+                8'b00000111: select_reg = 3'b011;
+                8'b00001000: select_reg = 3'b100;
+                8'b00001001: select_reg = 3'b101;
+                8'b00001010: select_reg = 3'b110;
+                8'b00001011: select_reg = 3'b000;
+                8'b00001100: select_reg = 3'b001;
+                8'b00001101: select_reg = 3'b010;
+                8'b00001110: select_reg = 3'b011;
+                8'b00001111: select_reg = 3'b100;
+                8'b00010000: select_reg = 3'b101;
+                8'b00010001: select_reg = 3'b110;
+                8'b00010010: select_reg = 3'b000;
+                8'b00010011: select_reg = 3'b001;
+                8'b00010100: select_reg = 3'b010;
+                8'b00010101: select_reg = 3'b011;
+                8'b00010110: select_reg = 3'b100;
+                8'b00010111: select_reg = 3'b101;
+                8'b00011000: select_reg = 3'b110;
+                8'b00011001: select_reg = 3'b000;
+                8'b00011010: select_reg = 3'b001;
+                8'b00011011: select_reg = 3'b010;
+                8'b00011100: select_reg = 3'b011;
+                8'b00011101: select_reg = 3'b100;
+                8'b00011110: select_reg = 3'b101;
+                8'b00011111: select_reg = 3'b110;
+                8'b00100000: select_reg = 3'b000;
+                8'b00100001: select_reg = 3'b001;
+                8'b00100010: select_reg = 3'b010;
+                8'b00100011: select_reg = 3'b011;
+                8'b00100100: select_reg = 3'b100;
+                8'b00100101: select_reg = 3'b101;
+                8'b00100110: select_reg = 3'b110;
+                8'b00100111: select_reg = 3'b000;
+                8'b00101000: select_reg = 3'b001;
+                8'b00101001: select_reg = 3'b010;
+                8'b00101010: select_reg = 3'b011;
+                8'b00101011: select_reg = 3'b100;
+                8'b00101100: select_reg = 3'b101;
+                8'b00101101: select_reg = 3'b110;
+                8'b00101110: select_reg = 3'b000;
+                8'b00101111: select_reg = 3'b001;
+                8'b00110000: select_reg = 3'b010;
+                8'b00110001: select_reg = 3'b011;
+                8'b00110010: select_reg = 3'b100;
+                8'b00110011: select_reg = 3'b101;
+                8'b00110100: select_reg = 3'b110;
+                8'b00110101: select_reg = 3'b000;
+                8'b00110110: select_reg = 3'b001;
+                8'b00110111: select_reg = 3'b010;
+                8'b00111000: select_reg = 3'b011;
+                8'b00111001: select_reg = 3'b100;
+                8'b00111010: select_reg = 3'b101;
+                8'b00111011: select_reg = 3'b110;
+                default: select_reg = 3'b111;
+            endcase
+        end
+    end
+
+endmodule
+
 //This is the full digital SPI communication section
 module SPI (
     input logic serial_in,
     input logic sclk,
     input logic iclk, //internal clock 
     input logic rstn, //external reset
-    input logic [7:0] reg4, reg5, reg6, reg7, reg8, reg9, //we designate reg 1-3 as special w/r
-    input logic [7:0] reg10, reg11, reg12, reg13, reg14, reg15, reg16, reg17, reg18, reg19, //all else are read only
-    input logic [7:0] reg20, reg21, reg22, reg23, reg24, reg25, reg26, reg27, reg28, reg29,
-    input logic [7:0] reg30, reg31, reg32, reg33, reg34, reg35, reg36, reg37, reg38, reg39,
-    input logic [7:0] reg40, reg41, reg42, reg43, reg44, reg45, reg46, reg47, reg48, reg49,
-    input logic [7:0] reg50, reg51, reg52, reg53, reg54, reg55, reg56, reg57, reg58, reg59,
+    output logic [7:0] load_cnt_ser,
+    output logic [2:0] select_reg,
+    output logic [7:0] trigger_channel_mask, //address 1
+    output logic [7:0] instruction, //address 2
+    output logic [7:0] mode, //address 3, W/R reg
     output logic serial_out
 );
     //different kinds of reset
@@ -70,14 +185,8 @@ module SPI (
     //Data from PICO to registers and POCI
     logic [7:0] write_data;
     logic [7:0] mux_control_signal;
-
     logic [2:0] input_mux_latch_sgnl; //Uses mux_control_signal to select reg to write to
     logic msg_flag; //from msg_flag_gen for readout
-
-    //data in the special registers 
-    logic [7:0] trigger_channel_mask; //address 1
-    logic [7:0] instruction; //address 2
-    logic [7:0] mode; //address 3
 
     //instantiating the special w/r registers
     //only use external rstn for these to not zero the data out after we stop writing
@@ -98,17 +207,5 @@ module SPI (
         .mux_control_signal (mux_control_signal)
     );
 
-    POCI out (
-        .rstn (full_rstn), .sclk (sclk), .msg_flag (msg_flag),
-        .control_signal (mux_control_signal), .trigger_channel_mask (trigger_channel_mask), .instruction (instruction), .mode (mode),
-        .reg4 (reg4), .reg5 (reg5), .reg6 (reg6), .reg7 (reg7), .reg8 (reg8), .reg9 (reg9), .reg10 (reg10),
-		.reg11 (reg11), .reg12 (reg12), .reg13 (reg13), .reg14 (reg14), .reg15 (reg15), .reg16 (reg16), .reg17 (reg17),
-		.reg18 (reg18), .reg19 (reg19), .reg20 (reg20), .reg21 (reg21), .reg22 (reg22), .reg23 (reg23), .reg24 (reg24),
-		.reg25 (reg25), .reg26 (reg26), .reg27 (reg27), .reg28 (reg28), .reg29 (reg29), .reg30 (reg30), .reg31 (reg31),
-		.reg32 (reg32), .reg33 (reg33), .reg34 (reg34), .reg35 (reg35), .reg36 (reg36), .reg37 (reg37), .reg38 (reg38),
-		.reg39 (reg39), .reg40 (reg40), .reg41 (reg41), .reg42 (reg42), .reg43 (reg43), .reg44 (reg44), .reg45 (reg45),
-		.reg46 (reg46), .reg47 (reg47), .reg48 (reg48), .reg49 (reg49), .reg50 (reg50), .reg51 (reg51), .reg52 (reg52),
-		.reg53 (reg53), .reg54 (reg54), .reg55 (reg55), .reg56 (reg56), .reg57 (reg57), .reg58 (reg58), .reg59 (reg59),
-        .serial_out (serial_out)
-    );
+    convert_addr out (.rstn (full_rstn), .mux_control_signal (mux_control_signal), .load_cnt_ser (load_cnt_ser), .select_reg (select_reg));
 endmodule
