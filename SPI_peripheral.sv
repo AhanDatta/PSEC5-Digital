@@ -65,28 +65,28 @@ module convert_addr (
                 load_cnt_ser = 8'b0;
             end
             else if (mux_control_signal <= 10) begin
-                load_cnt_ser = 8'b0000 0001;
+                load_cnt_ser = 8'b00000001;
             end
             else if (mux_control_signal <= 17) begin
-                load_cnt_ser = 8'b0000 0010;
+                load_cnt_ser = 8'b00000010;
             end
             else if (mux_control_signal <= 24) begin
-                load_cnt_ser = 8'b0000 0100;
+                load_cnt_ser = 8'b00000100;
             end
             else if (mux_control_signal <= 31) begin
-                load_cnt_ser = 8'b0000 1000;
+                load_cnt_ser = 8'b00001000;
             end
             else if (mux_control_signal <= 38) begin
-                load_cnt_ser = 8'b0001 0000;
+                load_cnt_ser = 8'b00010000;
             end
             else if (mux_control_signal <= 45) begin
-                load_cnt_ser = 8'b0010 0000;
+                load_cnt_ser = 8'b00100000;
             end
             else if (mux_control_signal <= 52) begin
-                load_cnt_ser = 8'b0100 0000;
+                load_cnt_ser = 8'b01000000;
             end
             else if (mux_control_signal <= 59) begin
-                load_cnt_ser = 8'b1000 0000;
+                load_cnt_ser = 8'b10000000;
             end
             else begin //invalid address case
                 load_cnt_ser = 8'b0;
