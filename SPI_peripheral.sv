@@ -94,7 +94,8 @@ module convert_addr (
 
             //Sets select_reg with LUT
             //Uses formula select_reg = (mux_control_signal - 4) % 7
-            case (mux_control_signal)
+            //111 default because load_reg = 7 is default in psec5_digital_april2024.sv
+            unique case (mux_control_signal)
                 8'b00000000: select_reg = 3'b111;
                 8'b00000001: select_reg = 3'b111;
                 8'b00000010: select_reg = 3'b111;
@@ -185,7 +186,6 @@ module SPI (
     logic [7:0] write_data;
     logic [7:0] mux_control_signal;
     logic [2:0] input_mux_latch_sgnl; //Uses mux_control_signal to select reg to write to
-    logic msg_flag; //from msg_flag_gen for readout
 
     //instantiating the special w/r registers
     //only use external rstn for these to not zero the data out after we stop writing
@@ -201,7 +201,6 @@ module SPI (
         .iclk (iclk), 
         .rstn (rstn), //full rstn is computed inside PICO
         .sclk_stop_rstn (sclk_stop_rstn), 
-        .msg_flag (msg_flag),
         .write_data (write_data), 
         .mux_control_signal (mux_control_signal)
     );
