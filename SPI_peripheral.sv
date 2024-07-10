@@ -173,7 +173,7 @@ module SPI (
     output logic [2:0] select_reg,
     output logic [7:0] trigger_channel_mask, //address 1
     output logic [7:0] instruction, //address 2
-    output logic [7:0] mode, //address 3, W/R reg
+    output logic [7:0] mode //address 3, W/R reg
 );
     //different kinds of reset
     logic sclk_stop_rstn;
