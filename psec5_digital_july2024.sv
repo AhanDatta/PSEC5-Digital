@@ -43,7 +43,7 @@ module PSEC5_Single_Channel_Digital_Block (
     output logic TRIGGERBC,
     output logic TRIGGERCC,
     output logic TRIGGERDC,
-    output logic [55:0] CTMP;
+    output logic [55:0] CTMP
 );  
     state_t current_state;
     

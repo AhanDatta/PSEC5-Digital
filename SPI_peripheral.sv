@@ -164,7 +164,7 @@ module convert_addr (
 endmodule
 
 //This is the full digital SPI communication section
-module SPI (
+module SPI_real (
     input logic serial_in,
     input logic sclk,
     input logic iclk, //internal clock 
