@@ -1,16 +1,8 @@
-`timescale 1ns/1ns
-
-
-
-
-
-
-
-
+`timescale 100ps/100ps
 
 module testbench;
 
-parameter MSG_SIZE; //How many messages you want to send, (Must add 1 to include space for address)
+parameter MSG_SIZE = 5; //How many messages you want to send, (Must add 1 to include space for address)
 //i.e 1 full message (8 bits) should have MSG_SIZE = 2;
 
 reg serial_in; //input
@@ -54,6 +46,12 @@ SPI_real UUT(
 
         always @(posedge sclk) begin
 
+
+              if (counter < 8*MSG_SIZE) begin
+          serial_in <= total_message[counter];
+              end
+
+
             counter++;
 
         end
@@ -62,6 +60,7 @@ initial begin
         counter = 0;
         sclk <= 0;
         iclk <=0 ;
+        total_message = 16'b0000011101010101111111110000000010101010;
         rstn <= 1'b1;
         #25
         rstn <= 1'b0;
@@ -69,11 +68,11 @@ initial begin
         rstn <= 1'b1;
         #100
 
-            while (counter < 8*MSG_SIZE) begin
+//            while (counter < 8*MSG_SIZE) begin
 
-                serial_in <= total_message[counter];
+//                serial_in <= total_message[counter];
 
-            end
+//            end
 
 
 
