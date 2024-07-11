@@ -60,6 +60,7 @@ initial begin
         counter = 0;
         sclk <= 0;
         iclk <=0 ;
+        serial_in = 1'b0;
         total_message = 16'b0000011101010101111111110000000010101010;
         rstn <= 1'b1;
         #5
