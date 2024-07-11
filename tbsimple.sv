@@ -62,11 +62,11 @@ initial begin
         iclk <=0 ;
         total_message = 16'b0000011101010101111111110000000010101010;
         rstn <= 1'b1;
-        #25
+        #5
         rstn <= 1'b0;
-        #25
+        #5
         rstn <= 1'b1;
-        #100
+        #5
 
 //            while (counter < 8*MSG_SIZE) begin
 
