@@ -43,6 +43,8 @@ module hack_tb();
     @(posedge clk);
     @(negedge clk);
     rstn = 1;
+
+    $display("External Reset ----------------------------------------------------------------------------------------------------------");
   endtask
 
   //internal reset from iclk
@@ -54,6 +56,7 @@ module hack_tb();
       @(negedge clk);
       iclk = 0;
     end
+    $display("Internal Reset ----------------------------------------------------------------------------------------------------------");
   endtask
 
 //Task to send serial data and read from serial out
@@ -68,22 +71,22 @@ task send_serial_data(input [7:0] data);
 endtask
 
 //For dbg
-always @(posedge clk, negedge clk) begin
-  $display(
-    "time: %0d, sclk: %0b, iclk: %0b, rstn: %0b, serial_in: %0b, addr: %0b, load_cnt_ser: %0b, select_reg: %0b, tcm: %0b, inst: %0b, mode: %0b, irstn: %0b, msgi: %0b",
-    $time, sclk, iclk, rstn, serial_in, DUT.mux_control_signal, load_cnt_ser, select_reg, trigger_channel_mask, instruction, mode,
-    DUT.sclk_stop_rstn, DUT.in.msgi);
+// always @(posedge clk, negedge clk) begin
+//   $display(
+//     "time: %0d, sclk: %0b, iclk: %0b, rstn: %0b, serial_in: %0b, addr: %0b, load_cnt_ser: %0b, select_reg: %0b, tcm: %0b, inst: %0b, mode: %0b, irstn: %0b, msgi: %0b",
+//     $time, sclk, iclk, rstn, serial_in, DUT.mux_control_signal, load_cnt_ser, select_reg, trigger_channel_mask, instruction, mode,
+//     DUT.sclk_stop_rstn, DUT.in.msgi);
 
-  if(clk == 0) begin
-    $display("--------------------------------------------------------------------------------------------------------------------------------------------------");
-  end
-end
+//   if(clk == 0) begin
+//     $display("--------------------------------------------------------------------------------------------------------------------------------------------------");
+//   end
+// end
 
 initial begin;
   clk = 0;
   iclk = 0;
   rstn = 1;
-  #50; //let the reset take effect?
+  #50; //let the reset take effect
   ext_reset(); //setting up chip
   serial_in = 0;
 
@@ -92,9 +95,57 @@ initial begin;
   send_serial_data(tcm_data);
   send_serial_data(instruction_data);
   send_serial_data(mode_data);
-  assert(trigger_channel_mask == tcm_data);
+  assert(trigger_channel_mask == tcm_data) $display("Writing to trigger channel mask: Passed");
+    else $error("Writing to trigger channel mask: Failed");
+  assert(instruction == instruction_data) $display("Writing to instruction: Passed");
+    else $error("Writing to instruction: Failed");
+  assert(mode == mode_data) $display("Writing to mode: Passed");
+    else $error("Writing to mode: Failed");
 
   int_reset();
+
+  //Case 2: Reading from registers 4-59 sequentially
+  send_serial_data(8'b00000100); //Set addr to 4 (first read reg)
+  for (int i = 4; i <= 59; i++) begin
+    //Checking select_reg
+    assert(select_reg == (i-4)%7) $display("select_reg on reg %0d: Passed", i);
+      else $error("select_reg on reg %0d: Failed", i);
+
+    //Checking load_cnt_ser
+    if (i <= 10) begin
+      assert(load_cnt_ser == 8'b00000001) $display("load_cnt_ser on reg %0d: Passed", i);
+        else $error("load_cnt_ser on reg %0d: Failed", i);
+    end
+    else if (i <= 17) begin
+      assert(load_cnt_ser == 8'b00000010) $display("load_cnt_ser on reg %0d: Passed", i);
+        else $error("load_cnt_ser on reg %0d: Failed", i);
+    end
+    else if (i <= 24) begin
+      assert(load_cnt_ser == 8'b00000100) $display("load_cnt_ser on reg %0d: Passed", i);
+        else $error("load_cnt_ser on reg %0d: Failed", i);
+    end
+    else if (i <= 31) begin
+      assert(load_cnt_ser == 8'b00001000) $display("load_cnt_ser on reg %0d: Passed", i);
+        else $error("load_cnt_ser on reg %0d: Failed", i);
+    end
+    else if (i <= 38) begin
+      assert(load_cnt_ser == 8'b00010000) $display("load_cnt_ser on reg %0d: Passed", i);
+        else $error("load_cnt_ser on reg %0d: Failed", i);
+    end
+    else if (i <= 45) begin
+      assert(load_cnt_ser == 8'b00100000) $display("load_cnt_ser on reg %0d: Passed", i);
+        else $error("load_cnt_ser on reg %0d: Failed", i);
+    end
+    else if (i <= 52) begin
+      assert(load_cnt_ser == 8'b01000000) $display("load_cnt_ser on reg %0d: Passed", i);
+        else $error("load_cnt_ser on reg %0d: Failed", i);
+    end
+    else if (i <= 59) begin
+      assert(load_cnt_ser == 8'b10000000) $display("load_cnt_ser on reg %0d: Passed", i);
+        else $error("load_cnt_ser on reg %0d: Failed", i);
+    end
+    send_serial_data(8'b0);
+  end
 
   $finish;
 end
