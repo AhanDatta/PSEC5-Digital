@@ -70,7 +70,7 @@ task send_serial_data(input [7:0] data, output [7:0] read_data);
     sclk = 1;
     @(negedge clk);
     sclk = 0;
-    read_data[j] = serial_out;
+    read_data[7-j] = serial_out;
   end
 endtask
 

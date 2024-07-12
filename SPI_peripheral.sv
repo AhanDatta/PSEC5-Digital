@@ -176,17 +176,23 @@ module W_R_reg_readout (
 	);
 
 	logic [7:0] held_data; //data in latched register
+    logic [7:0] idata;
 	logic [2:0] index_pointer; //Points to the index of addr which should be output 
 
     //Loading the data into the readout reg
-	always_ff @(posedge mux_control_signal[0], posedge mux_control_signal[1]) begin
+	always_comb begin
+        if (!rstn) begin
+            idata = 8'b0;
+        end
         unique case (mux_control_signal)
-            1: held_data = trigger_channel_mask;
-            2: held_data = instruction;
-            3: held_data = mode;
-            default: held_data = 8'b0;
+            1: idata = trigger_channel_mask;
+            2: idata = instruction;
+            3: idata = mode;
+            default: idata = 8'b0;
         endcase
     end
+
+    latched_write_reg latched_data (.rstn (rstn), .data (idata), .latch_en (msg_flag), .stored_data (held_data));
 	
 	always_ff @(posedge sclk or negedge rstn) begin
 		if (!rstn) begin
@@ -226,6 +232,18 @@ module SPI (
     logic [7:0] mux_control_signal;
     logic [2:0] input_mux_latch_sgnl; //Uses mux_control_signal to select reg to write to
 
+    //Gets the input into a usable form
+    PICO in (
+        .serial_in (serial_in), 
+        .sclk (sclk), 
+        .iclk (iclk), 
+        .rstn (rstn), //full rstn is computed inside PICO
+        .msg_flag (msg_flag),
+        .sclk_stop_rstn (sclk_stop_rstn), 
+        .write_data (write_data), 
+        .mux_control_signal (mux_control_signal)
+    );
+
     //instantiating the special w/r registers
     //only use external rstn for these to not zero the data out after we stop writing
     latched_write_reg trigger_ch_mask_reg (.rstn (rstn), .data (write_data), .latch_en (input_mux_latch_sgnl[0]), .stored_data (trigger_channel_mask));
@@ -246,16 +264,6 @@ module SPI (
         .serial_out (serial_out)
     );
 
-    PICO in (
-        .serial_in (serial_in), 
-        .sclk (sclk), 
-        .iclk (iclk), 
-        .rstn (rstn), //full rstn is computed inside PICO
-        .msg_flag (msg_flag),
-        .sclk_stop_rstn (sclk_stop_rstn), 
-        .write_data (write_data), 
-        .mux_control_signal (mux_control_signal)
-    );
-
+    //Output for the readout of regs 4-59
     convert_addr addr_out (.rstn (full_rstn), .mux_control_signal (mux_control_signal), .load_cnt_ser (load_cnt_ser), .select_reg (select_reg));
 endmodule
