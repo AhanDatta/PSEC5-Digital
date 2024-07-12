@@ -160,7 +160,44 @@ module convert_addr (
             endcase
         end
     end
+endmodule
 
+//8 bit message into serial
+//NOTE: This is a software hack. When synthesized, becomes a regular shift reg
+module W_R_reg_readout (
+	input logic [7:0] trigger_channel_mask, 
+    input logic [7:0] instruction,
+    input logic [7:0] mode,
+    input logic [7:0] mux_control_signal,
+    input logic msg_flag,
+	input logic sclk, 
+	input logic rstn, 
+	output logic serial_out
+	);
+
+	logic [7:0] held_data; //data in latched register
+	logic [2:0] index_pointer; //Points to the index of addr which should be output 
+
+    //Loading the data into the readout reg
+	always_ff @(posedge mux_control_signal[0], posedge mux_control_signal[1]) begin
+        unique case (mux_control_signal)
+            1: held_data = trigger_channel_mask;
+            2: held_data = instruction;
+            3: held_data = mode;
+            default: held_data = 8'b0;
+        endcase
+    end
+	
+	always_ff @(posedge sclk or negedge rstn) begin
+		if (!rstn) begin
+			serial_out <= 0;
+			index_pointer <= '0;
+		end
+		else begin
+			serial_out <= held_data[index_pointer];
+			index_pointer <= index_pointer + 1;
+		end
+	end
 endmodule
 
 //This is the full digital SPI communication section
@@ -173,11 +210,13 @@ module SPI (
     output logic [2:0] select_reg,
     output logic [7:0] trigger_channel_mask, //address 1
     output logic [7:0] instruction, //address 2
-    output logic [7:0] mode //address 3, W/R reg
+    output logic [7:0] mode, //address 3, W/R reg
+    output logic serial_out //partial serial out for addr 1-3
 );
     //different kinds of reset
     logic sclk_stop_rstn;
     logic full_rstn;
+    logic msg_flag;
     always_comb begin
         full_rstn = rstn & sclk_stop_rstn; 
     end
@@ -195,15 +234,28 @@ module SPI (
 
     input_mux write_mux (.rstn (full_rstn), .sclk (sclk), .addr (mux_control_signal), .latch_signal (input_mux_latch_sgnl));
 
+    //Readout from registers 1-3
+    W_R_reg_readout data_out (
+        .trigger_channel_mask (trigger_channel_mask),
+        .instruction (instruction),
+        .mode (mode),
+        .mux_control_signal (mux_control_signal),
+        .msg_flag (msg_flag),
+        .sclk (sclk),
+        .rstn (full_rstn),
+        .serial_out (serial_out)
+    );
+
     PICO in (
         .serial_in (serial_in), 
         .sclk (sclk), 
         .iclk (iclk), 
         .rstn (rstn), //full rstn is computed inside PICO
+        .msg_flag (msg_flag),
         .sclk_stop_rstn (sclk_stop_rstn), 
         .write_data (write_data), 
         .mux_control_signal (mux_control_signal)
     );
 
-    convert_addr out (.rstn (full_rstn), .mux_control_signal (mux_control_signal), .load_cnt_ser (load_cnt_ser), .select_reg (select_reg));
+    convert_addr addr_out (.rstn (full_rstn), .mux_control_signal (mux_control_signal), .load_cnt_ser (load_cnt_ser), .select_reg (select_reg));
 endmodule

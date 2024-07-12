@@ -147,6 +147,7 @@ input logic serial_in, //Serial message data
 input logic sclk, //spi clock
 input logic iclk, //internal clock
 input logic rstn, //external reset
+output logic msg_flag,
 output logic sclk_stop_rstn, //From the clock comparator
 output logic [7:0] write_data, //Output data to write
 output logic [7:0] mux_control_signal //Output control signal for POCI mux
@@ -154,7 +155,7 @@ output logic [7:0] mux_control_signal //Output control signal for POCI mux
 
 logic [7:0] msgi; //internal message from s2p -> read_write
 logic full_rstn;
-logic msg_flag;
+
     
     always_comb begin
             full_rstn = rstn & sclk_stop_rstn; //Combines the reset signal from the clock comparator and external reset   
