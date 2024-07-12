@@ -372,7 +372,7 @@ module input_mux (
 endmodule
 
 //This is the full digital SPI communication section
-module SPI (
+module SPI_prime (
     input logic serial_in,
     input logic sclk,
     input logic iclk, //internal clock 
@@ -598,7 +598,7 @@ module test_SPI (
         reg50, reg51, reg52, reg53, reg54, reg55, reg56, reg57, reg58, reg59
     );
 
-    SPI DUT (
+    SPI_prime DUT (
         serial_in, sclk, iclk, rstn,
         reg4, reg5, reg6, reg7, reg8, reg9, 
         reg10, reg11, reg12, reg13, reg14, reg15, reg16, reg17, reg18, reg19,

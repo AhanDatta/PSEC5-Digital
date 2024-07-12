@@ -19,7 +19,7 @@ reg [MSG_SIZE*8:0] total_message;
 int counter;
 
 
-SPI_real UUT(
+SPI UUT(
 
 //inputs
 .serial_in(serial_in),
