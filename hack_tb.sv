@@ -6,6 +6,7 @@ module hack_tb();
 
   //clock for simulation
   logic clk;
+  logic dbg_readout;
   always #25 clk = ~clk; //50 ns clock period
 
   logic rstn;
@@ -76,17 +77,22 @@ endtask
 
 //For dbg
 always @(posedge clk, negedge clk) begin
-  $display(
-    "time: %0d, sclk: %0b, iclk: %0b, rstn: %0b, serial_in: %0b, addr: %0b, load_cnt_ser: %0b, select_reg: %0b, tcm: %0b, inst: %0b, mode: %0b, irstn: %0b, msgi: %0b, serial_out: %0b, readout: %0b",
-    $time, sclk, iclk, rstn, serial_in, DUT.mux_control_signal, load_cnt_ser, select_reg, trigger_channel_mask, instruction, mode,
-    DUT.sclk_stop_rstn, DUT.in.msgi, serial_out, read_data);
+  if (dbg_readout) begin
+    $display(
+      "time: %0d, sclk: %0b, iclk: %0b, rstn: %0b, serial_in: %0b, addr: %0b, load_cnt_ser: %0b, select_reg: %0b, tcm: %0b, inst: %0b, mode: %0b, irstn: %0b, msgi: %0b, serial_out: %0b, readout: %0b",
+      $time, sclk, iclk, rstn, serial_in, DUT.mux_control_signal, load_cnt_ser, select_reg, trigger_channel_mask, instruction, mode,
+      DUT.sclk_stop_rstn, DUT.in.msgi, serial_out, read_data);
 
-  if(clk == 0) begin
-    $display("--------------------------------------------------------------------------------------------------------------------------------------------------");
+    if(clk == 0) begin
+      $display("--------------------------------------------------------------------------------------------------------------------------------------------------");
+    end
   end
 end
 
 initial begin;
+  //Select if verbose readout
+  dbg_readout = 0;
+
   clk = 0;
   iclk = 0;
   rstn = 1;
@@ -164,6 +170,19 @@ initial begin;
   send_serial_data(8'b0, read_data);
   assert(read_data == mode_data) $display("Reading from mode: Passed");
     else $error("Reading from mode: Failed");
+
+  int_reset();
+
+  //Case 4: Invalid Address
+  for(int i = 60; i <= 255; i++) begin
+    send_serial_data(i, read_data); //Setting invalid address
+    assert(load_cnt_ser == 8'b0) $display("load_cnt_ser on red %0d: Passed", i);
+      else $display("load_cnt_ser on red %0d: Failed", i);
+    assert(select_reg == 3'b111) $display("select_reg on reg %0d: Passed", i);
+      else $error("select_reg on reg %0d: Failed", i);
+
+    int_reset();
+  end
 
   $finish;
 end
