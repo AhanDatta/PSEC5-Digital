@@ -40,9 +40,9 @@ module input_mux (
                 8'd1: latch_signal <= 8'b0000_0001;
                 8'd2: latch_signal <= 8'b0000_0010;
                 8'd3: latch_signal <= 8'b0000_0100;
-                8'd60: latch_signal <= 8'b0000_1000;
-                8'd61: latch_signal <= 8'b0001_0000;
-                8'd62: latch_signal <= 8'b0010_0000;
+                8'd61: latch_signal <= 8'b0000_1000;
+                8'd62: latch_signal <= 8'b0001_0000;
+                8'd63: latch_signal <= 8'b0010_0000;
                 8'd64: latch_signal <= 8'b0100_0000;
                 8'd65: latch_signal <= 8'b1000_0000;
                 default: latch_signal <= 8'b0000_0000;
@@ -199,10 +199,10 @@ module W_R_reg_readout (
             1: idata = trigger_channel_mask;
             2: idata = instruction;
             3: idata = mode;
-            60: idata = disc_polarity;
-            61: idata = vco_control;
-            62: idata = pll_div_ratio;
-            63: idata = pll_locked;
+            60: idata = pll_locked;
+            61: idata = disc_polarity;
+            62: idata = vco_control;
+            63: idata = pll_div_ratio;
             64: idata = slow_mode;
             65: idata = trig_delay;
             default: idata = 8'b0;
@@ -227,7 +227,7 @@ endmodule
 module SPI (
     input logic serial_in,
     input logic sclk,
-    input logic pll_locked, //bitflag for dbg
+    input logic [7:0] pll_locked, //address 60
     input logic iclk, //internal clock 
     input logic rstn, //external reset
     output logic [7:0] load_cnt_ser,
@@ -235,9 +235,9 @@ module SPI (
     output logic [7:0] trigger_channel_mask, //address 1
     output logic [7:0] instruction, //address 2
     output logic [7:0] mode, //address 3
-    output logic [7:0] disc_polarity, //address 60
-    output logic [7:0] vco_control, //address 61
-    output logic [7:0] pll_div_ratio, //address 62
+    output logic [7:0] disc_polarity, //address 61
+    output logic [7:0] vco_control, //address 62
+    output logic [7:0] pll_div_ratio, //address 63
     output logic [7:0] slow_mode, //address 64
     output logic [7:0] trig_delay, //address 65 
     output logic serial_out //partial serial out for addr 1-3
@@ -269,7 +269,6 @@ module SPI (
 
     //instantiating the special registers
     //only use external rstn for these to not zero the data out after we stop writing
-    logic [7:0] pll_locked_reg = {7'b0, pll_locked};
     latched_write_reg trigger_ch_mask_reg (.rstn (rstn), .data (write_data), .latch_en (input_mux_latch_sgnl[0]), .stored_data (trigger_channel_mask));
     latched_write_reg instruction_reg (.rstn (rstn), .data (write_data), .latch_en (input_mux_latch_sgnl[1]), .stored_data (instruction));
     latched_write_reg mode_reg (.rstn (rstn), .data (write_data), .latch_en (input_mux_latch_sgnl[2]), .stored_data (mode));
@@ -289,7 +288,7 @@ module SPI (
         .disc_polarity (disc_polarity),
         .vco_control (vco_control),
         .pll_div_ratio (pll_div_ratio),
-        .pll_locked (pll_locked_reg),
+        .pll_locked (pll_locked),
         .slow_mode (slow_mode),
         .trig_delay (trig_delay),
         .mux_control_signal (mux_control_signal),
