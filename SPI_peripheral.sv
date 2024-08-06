@@ -29,7 +29,7 @@ module input_mux (
     input logic rstn,
     input logic [7:0] addr,
     input logic sclk, 
-    output logic [2:0] latch_signal //carries the latch signal to the correct reg based on address
+    output logic [7:0] latch_signal //carries the latch signal to the correct reg based on address
 );
     always_ff @(posedge sclk or negedge rstn) begin
         if (!rstn) begin
@@ -37,10 +37,15 @@ module input_mux (
         end
         else begin
             unique case (addr)
-                8'd1: latch_signal <= 3'b001;
-                8'd2: latch_signal <= 3'b010;
-                8'd3: latch_signal <= 3'b100;
-                default: latch_signal <= 3'b000;
+                8'd1: latch_signal <= 8'b0000_0001;
+                8'd2: latch_signal <= 8'b0000_0010;
+                8'd3: latch_signal <= 8'b0000_0100;
+                8'd60: latch_signal <= 8'b0000_1000;
+                8'd61: latch_signal <= 8'b0001_0000;
+                8'd62: latch_signal <= 8'b0010_0000;
+                8'd64: latch_signal <= 8'b0100_0000;
+                8'd65: latch_signal <= 8'b1000_0000;
+                default: latch_signal <= 8'b0000_0000;
             endcase
         end
     end
@@ -168,6 +173,12 @@ module W_R_reg_readout (
 	input logic [7:0] trigger_channel_mask, 
     input logic [7:0] instruction,
     input logic [7:0] mode,
+    input logic [7:0] disc_polarity,
+    input logic [7:0] vco_control,
+    input logic [7:0] pll_div_ratio,
+    input logic [7:0] pll_locked,
+    input logic [7:0] slow_mode,
+    input logic [7:0] trig_delay,
     input logic [7:0] mux_control_signal,
     input logic msg_flag,
 	input logic sclk, 
@@ -188,6 +199,12 @@ module W_R_reg_readout (
             1: idata = trigger_channel_mask;
             2: idata = instruction;
             3: idata = mode;
+            60: idata = disc_polarity;
+            61: idata = vco_control;
+            62: idata = pll_div_ratio;
+            63: idata = pll_locked;
+            64: idata = slow_mode;
+            65: idata = trig_delay;
             default: idata = 8'b0;
         endcase
     end
@@ -210,13 +227,19 @@ endmodule
 module SPI (
     input logic serial_in,
     input logic sclk,
+    input logic pll_locked, //bitflag for dbg
     input logic iclk, //internal clock 
     input logic rstn, //external reset
     output logic [7:0] load_cnt_ser,
     output logic [2:0] select_reg,
     output logic [7:0] trigger_channel_mask, //address 1
     output logic [7:0] instruction, //address 2
-    output logic [7:0] mode, //address 3, W/R reg
+    output logic [7:0] mode, //address 3
+    output logic [7:0] disc_polarity, //address 60
+    output logic [7:0] vco_control, //address 61
+    output logic [7:0] pll_div_ratio, //address 62
+    output logic [7:0] slow_mode, //address 64
+    output logic [7:0] trig_delay, //address 65 
     output logic serial_out //partial serial out for addr 1-3
 );
     //different kinds of reset
@@ -230,7 +253,7 @@ module SPI (
     //Data from PICO to registers and POCI
     logic [7:0] write_data;
     logic [7:0] mux_control_signal;
-    logic [2:0] input_mux_latch_sgnl; //Uses mux_control_signal to select reg to write to
+    logic [7:0] input_mux_latch_sgnl; //Uses mux_control_signal to select reg to write to
 
     //Gets the input into a usable form
     PICO in (
@@ -244,11 +267,17 @@ module SPI (
         .mux_control_signal (mux_control_signal)
     );
 
-    //instantiating the special w/r registers
+    //instantiating the special registers
     //only use external rstn for these to not zero the data out after we stop writing
+    logic [7:0] pll_locked_reg = {7'b0, pll_locked};
     latched_write_reg trigger_ch_mask_reg (.rstn (rstn), .data (write_data), .latch_en (input_mux_latch_sgnl[0]), .stored_data (trigger_channel_mask));
     latched_write_reg instruction_reg (.rstn (rstn), .data (write_data), .latch_en (input_mux_latch_sgnl[1]), .stored_data (instruction));
     latched_write_reg mode_reg (.rstn (rstn), .data (write_data), .latch_en (input_mux_latch_sgnl[2]), .stored_data (mode));
+    latched_write_reg disc_polarity_reg(.rstn (rstn), .data(write_data), .latch_en (input_mux_latch_sgnl[3]), .stored_data (disc_polarity));
+    latched_write_reg vco_control_reg(.rstn (rstn), .data(write_data), .latch_en (input_mux_latch_sgnl[4]), .stored_data (vco_control));
+    latched_write_reg pll_div_ratio_reg(.rstn (rstn), .data(write_data), .latch_en (input_mux_latch_sgnl[5]), .stored_data (pll_div_ratio));
+    latched_write_reg slow_mode_reg(.rstn (rstn), .data(write_data), .latch_en (input_mux_latch_sgnl[6]), .stored_data (slow_mode));
+    latched_write_reg trig_delay_reg(.rstn (rstn), .data(write_data), .latch_en (input_mux_latch_sgnl[7]), .stored_data (trig_delay));
 
     input_mux write_mux (.rstn (full_rstn), .sclk (sclk), .addr (mux_control_signal), .latch_signal (input_mux_latch_sgnl));
 
@@ -257,6 +286,12 @@ module SPI (
         .trigger_channel_mask (trigger_channel_mask),
         .instruction (instruction),
         .mode (mode),
+        .disc_polarity (disc_polarity),
+        .vco_control (vco_control),
+        .pll_div_ratio (pll_div_ratio),
+        .pll_locked (pll_locked_reg),
+        .slow_mode (slow_mode),
+        .trig_delay (trig_delay),
         .mux_control_signal (mux_control_signal),
         .msg_flag (msg_flag),
         .sclk (sclk),
