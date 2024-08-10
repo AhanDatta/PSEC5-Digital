@@ -62,8 +62,8 @@ module PSEC5_CH_DIGITAL (
     logic [2:0] trigger_cnt; //# of legitimate trigger fires. 
     logic premature_trigger;
     
-    always_ff @(posedge FCLK, posedge start1, posedge start2, posedge start4) begin
-        if(start1 || start2 || start4) begin
+    always_ff @(posedge FCLK, posedge INST_START) begin
+        if(INST_START) begin
           trig_shift_reg <= 32'b1; //Zero all registers except the first bit. After 6.4ns, when the bit reaches the last register, release the premature_trigger.
           premature_trigger <= 1;
         end
@@ -100,7 +100,7 @@ module PSEC5_CH_DIGITAL (
                             // Default behavior
                             start1 = 0;
                             start2 = 0;
-                            start4 = 0;
+                            start4 = 1;
                         end
                 endcase 
         end
