@@ -20,7 +20,7 @@ typedef enum logic [1:0] {
     MODE_SAMPLE2,
     MODE_SAMPLE4
 } smode_t;
-module PSEC5_Single_Channel_Digital_Block (
+module PSEC5_CH_DIGITAL (
     input logic INST_START,
     input logic INST_STOP,
     input logic INST_READOUT,
@@ -36,7 +36,8 @@ module PSEC5_Single_Channel_Digital_Block (
     input logic DISCRIMINATOR_POLARITY,
     input logic [2:0] SELECT_REG,
     input logic LOAD_CNT_SER,
-    input logic PREMATURE_TRIGGER,
+    input logic [4:0] TRIG_DELAY,
+    input logic FCLK,
     //NOTE: The final output of the module has to be synchronized to the 5GHz clock nonetheless, to avoid metastability issues. This is not implemented in this module yet.
     output logic STOP_REQUEST,
     output logic TRIGGERA,
@@ -52,14 +53,27 @@ module PSEC5_Single_Channel_Digital_Block (
 );  
     state_t current_state;
     logic [7:0] cbuffer;
+    logic [31:0] trig_shift_reg;
     logic [55:0] ctmp;
     logic start1;
     logic start2;
     logic start4;
-    logic [6:0] load_reg;
     logic trigger;
+    logic [2:0] trigger_cnt; //# of legitimate trigger fires. 
+    logic premature_trigger;
     
-
+    always_ff @(posedge FCLK, posedge start1, posedge start2, posedge start4) begin
+        if(start1 || start2 || start4) begin
+          trig_shift_reg <= 32'b1; //Zero all registers except the first bit. After 6.4ns, when the bit reaches the last register, release the premature_trigger.
+          premature_trigger <= 1;
+        end
+        else begin
+          trig_shift_reg <= {trig_shift_reg[30:0], DISCRIMINATOR_OUTPUT};
+          if(trig_shift_reg[31]) begin
+            premature_trigger <= 0;
+          end
+        end
+    end
     always_comb begin
         if (INST_START) begin
            case (MODE) 
@@ -99,62 +113,24 @@ module PSEC5_Single_Channel_Digital_Block (
     end
 
     always_comb begin
-        if (LOAD_CNT_SER) begin
-           case (SELECT_REG) 
-                    0: 
-                        begin
-                            load_reg = 7'b1;
-                        end
-                    1: 
-                        begin
-                            load_reg = 7'b10;
-                        end
-                    2: 
-                        begin
-                            load_reg = 7'b100;
-                        end
-                    3: 
-                        begin
-                            load_reg = 7'b1000;
-                        end
-                    4: 
-                        begin
-                            load_reg = 7'b10000;
-                        end
-                    5: 
-                        begin
-                            load_reg = 7'b100000;
-                        end
-                    6: 
-                        begin
-                            load_reg = 7'b1000000;
-                        end
-                    default: // Handle any other states if necessary
-                        begin
-                            // Default behavior
-                            load_reg = 7'b0;
-                        end
-                endcase 
-        end
-        else begin
-            load_reg = 7'b0;
-
-        end
-    end
-
-    always_comb begin
         case (current_state)
             STATE_STOPPED: begin
-                trigger = 0
+                trigger = 0;
             end
             STATE_INIT: begin
-                trigger = 0
+                trigger = 0;
             end
             STATE_READOUT: begin
-                trigger = 0
+                trigger = 0;
             end
             default: begin
-                trigger = (DISCRIMINATOR_OUTPUT ^ DISCRIMINATOR_POLARITY) & (!PREMATURE_TRIGGER) 
+                if (TRIG_DELAY == 5'b0) begin
+                    trigger = (DISCRIMINATOR_OUTPUT ^ DISCRIMINATOR_POLARITY) & (!premature_trigger);
+                end
+                else begin
+                    trigger = (trig_shift_reg[TRIG_DELAY] ^ DISCRIMINATOR_POLARITY) & (!premature_trigger);
+                end
+                
             end
         
         endcase
@@ -164,28 +140,28 @@ module PSEC5_Single_Channel_Digital_Block (
     always_comb begin
         case (current_state)
             STATE_STOPPED: begin
-                STOP_REQUEST = 0
+                STOP_REQUEST = 0;
             end
             STATE_INIT: begin
-                STOP_REQUEST = 0
+                STOP_REQUEST = 0;
             end
             STATE_READOUT: begin
-                STOP_REQUEST = 0
+                STOP_REQUEST = 0;
             end
             //Don't request stop when nothing is recorded.
             STATE_SAMPLING_A: begin
-                STOP_REQUEST = 0
+                STOP_REQUEST = 0;
             end
             //Don't request stop when nothing is recorded.
             STATE_SAMPLING_A_AND_B: begin
-                STOP_REQUEST = 0
+                STOP_REQUEST = 0;
             end
             //Don't request stop when nothing is recorded.
             STATE_SAMPLING_ALL: begin
-                STOP_REQUEST = 0
+                STOP_REQUEST = 0;
             end
             default: begin
-                STOP_REQUEST = (CA - CE < 10b'1000000)// 25.6 ns (5GHz) / 51.2 ns (2.5GHz) before the slow SCA overwrites the first edge. 
+                STOP_REQUEST = (CA - CE < 10'b1000000);// 25.6 ns (5GHz) / 51.2 ns (2.5GHz) before the slow SCA overwrites the first edge. 
                 //TODO: Verify this logic's behavior.
                 //If your signal count is W bits wide and N is a constant (generic/parameter) that is also a power of 2 (such that N == 2**n), then count < N will synthesize into a simple NOR of W-n bits. If a minimal counter width W is used, this will be a single bit inverter which can typically be absorbed into the next logical function.
             end
@@ -199,15 +175,18 @@ module PSEC5_Single_Channel_Digital_Block (
         end
         else begin
             if (start1) begin 
-                current_state <= STATE_SAMPLING_A; 
+                current_state <= STATE_SAMPLING_A;
+                trigger_cnt <= 3'b0;
             end
             else begin 
                 if (start2) begin 
                     current_state <= STATE_SAMPLING_A_AND_B; 
+                    trigger_cnt <= 3'b0;
                 end
                 else begin 
                     if (start4) begin 
-                        current_state <= STATE_SAMPLING_ALL; 
+                        current_state <= STATE_SAMPLING_ALL;
+                        trigger_cnt <= 3'b0;
                     end
                     else begin 
                         if (INST_STOP) begin
@@ -220,30 +199,37 @@ module PSEC5_Single_Channel_Digital_Block (
                                     STATE_SAMPLING_A: begin
                                         // If the discriminator output is present, start sampling the next fast buffer.
                                         current_state <= STATE_SAMPLING_B;
+                                        trigger_cnt <= 3'b001;
                                     end
                                     STATE_SAMPLING_B: begin
                                         // If the discriminator output is present, start sampling the next fast buffer.
                                         current_state <= STATE_SAMPLING_C;
+                                        trigger_cnt <= 3'b010;
                                     end
                                     STATE_SAMPLING_C: begin
                                         // If the discriminator output is present, start sampling the next fast buffer.
                                         current_state <= STATE_SAMPLING_D;
+                                        trigger_cnt <= 3'b011;
                                     end
                                     STATE_SAMPLING_D: begin
                                         // If the discriminator output is present, finish sampling the fast buffers but keep sampling the slow buffer.
                                         current_state <= STATE_SAMPLING_E;
+                                        trigger_cnt <= 3'b100;
                                     end
                                     STATE_SAMPLING_A_AND_B: begin
                                         // If the discriminator output is present, start sampling the next two fast buffers.
                                         current_state <= STATE_SAMPLING_C_AND_D;
+                                        trigger_cnt <= 3'b001;
                                     end
                                     STATE_SAMPLING_C_AND_D: begin
                                         // If the discriminator output is present, finish sampling the fast buffers but keep sampling the slow buffer.
                                         current_state <= STATE_SAMPLING_E;
+                                        trigger_cnt <= 3'b010;
                                     end
                                     STATE_SAMPLING_ALL: begin
                                         // If the discriminator output is present, finish sampling the fast buffers but keep sampling the slow buffer.
                                         current_state <= STATE_SAMPLING_E;
+                                        trigger_cnt <= 3'b001;
                                     end
                                     STATE_INIT: begin
                                         current_state <= STATE_INIT;
@@ -274,37 +260,13 @@ module PSEC5_Single_Channel_Digital_Block (
 
     always_ff @(posedge INST_STOP) begin
         if (INST_STOP) begin
-            ctmp <= {6'b0, CE, CD, CC, CB, CA};
+            ctmp <= {3'b0, trigger_cnt, CE, CD, CC, CB, CA}; //56 bits total.
         end
     end
 
-    always_ff @(posedge SPI_CLK, posedge load_reg[0], posedge load_reg[1], posedge load_reg[2], posedge load_reg[3], posedge load_reg[4], posedge load_reg[5], posedge load_reg[6]) begin
-        if (load_reg[0]) begin
-            cbuffer <= ctmp[7:0];
-            CNT_SER <= 0;
-        end
-        else if (load_reg[1]) begin
-            cbuffer <= ctmp[15:8];
-            CNT_SER <= 0;
-        end
-        else if (load_reg[2]) begin
-            cbuffer <= ctmp[23:16];
-            CNT_SER <= 0;
-        end
-        else if (load_reg[3]) begin
-            cbuffer <= ctmp[31:24];
-            CNT_SER <= 0;
-        end
-        else if (load_reg[4]) begin
-            cbuffer <= ctmp[39:32];
-            CNT_SER <= 0;
-        end
-        else if (load_reg[5]) begin
-            cbuffer <= ctmp[47:40];
-            CNT_SER <= 0;
-        end
-        else if (load_reg[6]) begin
-            cbuffer <= ctmp[55:48];
+    always_ff @(posedge SPI_CLK, posedge LOAD_CNT_SER) begin
+        if (LOAD_CNT_SER) begin
+            cbuffer <= ctmp[(SELECT_REG << 3)+:8];
             CNT_SER <= 0;
         end
         else begin //Default behavior when SPI_CLK is high
