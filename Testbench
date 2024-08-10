@@ -1,0 +1,118 @@
+`timescale 100ps/100ps
+
+module Testbench;
+
+
+//i.e 1 full message (8 bits) should have MSG_SIZE = 2;
+
+
+
+reg INST_START;
+reg INST_STOP;
+reg INST_READOUT;
+reg RSTB;
+reg DISCRIMINATOR_OUTPUT;// This is the unsync'ed input from the discriminator, which is in the analog part of the PSEC5.
+reg SPI_CLK;//I moved some of the spi shift registers into this module, for the sake of speed and simplicity.
+reg [9:0] CA;//These are counter values.
+reg [9:0] CB;
+reg [9:0] CC;
+reg [9:0] CD;
+reg [9:0] CE;
+reg MODE;
+reg DISCRIMINATOR_POLARITY;
+reg [2:0] SELECT_REG;
+reg LOAD_CNT_SER;
+reg PREMATURE_TRIGGER;
+//NOTE: The final output of the module has to be synchronized to the 5GHz clock nonetheless, to avoid metastability issues. This is not implemented in this module yet.
+wire STOP_REQUEST;
+wire TRIGGERA;
+wire TRIGGERB;
+wire TRIGGERC;
+wire TRIGGERD;
+wire TRIGGERE;
+wire TRIGGERA;
+wire TRIGGERBC;
+wire TRIGGERCC;
+wire TRIGGERDC;
+wire CNT_SE;
+
+
+
+    state_t current_state;
+    reg [7:0] cbuffer;
+    reg [55:0] ctmp;
+    reg start1;
+    reg start2;
+    reg start4;
+    reg [6:0] load_reg;
+    reg trigger;
+
+
+
+
+
+PSEC5_Single_Channel_Digital_Block UUT(
+//inputs
+
+.INST_STAR(INST_STAR),
+.INST_STOP(INST_STOP),
+.INST_READ(INST_READ),
+.RSTB(RSTB),
+.DISCRIMIN(DISCRIMIN),
+.SPI_CLK(SPI_CLK),
+.CA(CA),
+.CB(CB),
+.CC(CC),
+.CD(CD),
+.CE(CE),
+
+//outputs
+.STOP_REQUEST(STOP_REQUEST),
+.TRIGGERA(TRIGGERA),
+.TRIGGERB(TRIGGERB),
+.TRIGGERC(TRIGGERC),
+.TRIGGERD(TRIGGERC),
+.TRIGGERE(TRIGGERE),
+.TRIGGERAC(TRIGGERAC),
+.TRIGGERBC(TRIGGERBC),
+.TRIGGERCC(TRIGGERCC),
+.TRIGGERDC(TRIGGERDC),
+.CNT_SER(CNT_SER)
+
+);
+
+
+        always begin
+            #25 SPI_CLK = ~SPI_CLK;
+            end
+
+initial begin
+        SPI_CLK <= 0;
+INST_START <= 1'b1;       
+INST_STOP <= 1'b0;        
+INST_READOUT <= 1'b0;                 
+DISCRIMINATOR_OUTPUT <= 1'b0;
+CA <= 10'b0000000000;
+CB <= 10'b1111111111;         
+CC <= 10'b1010101010;     
+CD <= 10'b0101010101;        
+CE <= 10'b1111000011;       
+MODE <= 1'b0;             
+DISCRIMINATOR_POLARITY <= 1'b0;
+SELECT_REG <= 3'b001; 
+LOAD_CNT_SER <= 1'b0;     
+PREMATURE_TRIGGER <= 1'b0;
+        
+        
+        SPI_CLK <= 1'b0;//I moved 
+        
+        RSTB <= 1'b1;
+        #5
+        RSTB <= 1'b0;
+        #5
+        RSTB <= 1'b1;
+        #5
+
+
+
+endmodule
