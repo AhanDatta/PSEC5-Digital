@@ -266,7 +266,13 @@ module PSEC5_CH_DIGITAL (
 
     always_ff @(posedge SPI_CLK, posedge LOAD_CNT_SER) begin
         if (LOAD_CNT_SER) begin
-            cbuffer <= ctmp[(SELECT_REG << 3)+:8];
+            for (int i = 0; i < 7; i++) begin
+                if(SELECT_REG == i)
+                    cbuffer <= ctmp[i*8+7:i*8];
+            end
+            if(SELECT_REG == 7) begin
+                cbuffer <= 0;
+            end
             CNT_SER <= 0;
         end
         else begin //Default behavior when SPI_CLK is high
