@@ -148,6 +148,7 @@ input logic sclk, //spi clock
 input logic iclk, //internal clock
 input logic rstn, //external reset
 output logic msg_flag,
+output logic data_set_flag,
 output logic sclk_stop_rstn, //From the clock comparator
 output logic [7:0] write_data, //Output data to write
 output logic [7:0] mux_control_signal //Output control signal for POCI mux

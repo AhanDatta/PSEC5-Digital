@@ -4,9 +4,11 @@ module hack_tb();
   //THE FOLLOWING CODE IS A TEMPORARY HACK
   //Want to test some special cases
 
+  //Select if want verbose readout
+  logic DBG_READOUT = 0;
+
   //clock for simulation
   logic clk;
-  logic dbg_readout;
   always #25 clk = ~clk; //50 ns clock period
 
   logic rstn;
@@ -16,7 +18,10 @@ module hack_tb();
   logic [7:0] load_cnt_ser;
   logic [2:0] select_reg;
   logic [7:0] trigger_channel_mask;
-  logic [7:0] instruction;
+  logic clk_enable;
+  logic inst_rst;
+  logic inst_readout;
+  logic inst_start;
   logic [7:0] mode;
   logic [7:0] disc_polarity;
   logic [7:0] vco_control;
@@ -28,7 +33,10 @@ module hack_tb();
   //setting all values
   //can change to test if it matters (it shouldn't)
   logic [7:0] tcm_data = 8'b0010_1001;
-  logic [7:0] instruction_data = 8'b0000_0110;
+  logic [7:0] instruction_data = 8'b0000_0001;
+  logic [7:0] INST_RST = 8'b0000_0001;
+  logic [7:0] INST_READOUT = 8'b0000_0010;
+  logic [7:0] INST_START = 8'b0000_0011;
   logic [7:0] mode_data = 8'b0000_0100;
   logic [7:0] disc_polarity_data = 8'b1010_1001;
   logic [7:0] vco_control_data = 8'b0011_0110;
@@ -46,8 +54,11 @@ module hack_tb();
     .pll_locked (pll_locked),
     .load_cnt_ser (load_cnt_ser),
     .select_reg (select_reg),
+    .clk_enable (clk_enable),
+    .inst_rst (inst_rst),
+    .inst_readout (inst_readout),
+    .inst_start (inst_start),
     .trigger_channel_mask (trigger_channel_mask),
-    .instruction (instruction),
     .mode (mode),
     .disc_polarity (disc_polarity),
     .vco_control (vco_control),
@@ -86,19 +97,21 @@ task send_serial_data(input [7:0] data, output [7:0] read_data);
     serial_in = data[j];
     @(posedge clk); //assumes sclk becomes clk
     sclk = 1;
+    iclk = 1;
     @(negedge clk);
     sclk = 0;
+    iclk = 0;
     read_data[7-j] = serial_out;
   end
 endtask
 
 //For dbg
 always @(posedge clk, negedge clk) begin
-  if (dbg_readout) begin
+  if (DBG_READOUT) begin
     $display(
-      "time: %0d, sclk: %0b, iclk: %0b, rstn: %0b, serial_in: %0b, addr: %0b, load_cnt_ser: %0b, select_reg: %0b, tcm: %0b, inst: %0b, mode: %0b, irstn: %0b, msgi: %0b, serial_out: %0b, readout: %0b",
-      $time, sclk, iclk, rstn, serial_in, DUT.mux_control_signal, load_cnt_ser, select_reg, trigger_channel_mask, instruction, mode,
-      DUT.sclk_stop_rstn, DUT.in.msgi, serial_out, read_data);
+      "time: %0d, sclk: %0b, iclk: %0b, rstn: %0b, serial_in: %0b, addr: %0b, load_cnt_ser: %0b, select_reg: %0b, tcm: %0b, inst: %0b, clk_enable: %0b, inst_rst: %0b,\n inst_readout: %0b, inst_start: %0b, mode: %0b, irstn: %0b, msgi: %0b, serial_out: %0b, readout: %0b, msg_flag %0b",
+      $time, sclk, iclk, rstn, serial_in, DUT.mux_control_signal, load_cnt_ser, select_reg, trigger_channel_mask, DUT.instruction, clk_enable, 
+      inst_rst, inst_readout, inst_start, mode, DUT.sclk_stop_rstn, DUT.in.msgi, serial_out, read_data, DUT.msg_flag);
 
     if(clk == 0) begin
       $display("--------------------------------------------------------------------------------------------------------------------------------------------------");
@@ -107,8 +120,6 @@ always @(posedge clk, negedge clk) begin
 end
 
 initial begin;
-  //Select if verbose readout
-  dbg_readout = 0;
 
   clk = 0;
   iclk = 0;
@@ -124,7 +135,7 @@ initial begin;
   send_serial_data(mode_data, read_data);
   assert(trigger_channel_mask == tcm_data) $display("Writing to trigger channel mask: Passed");
     else $error("Writing to trigger channel mask: Failed");
-  assert(instruction == instruction_data) $display("Writing to instruction: Passed");
+  assert(DUT.instruction == instruction_data) $display("Writing to instruction: Passed");
     else $error("Writing to instruction: Failed");
   assert(mode == mode_data) $display("Writing to mode: Passed");
     else $error("Writing to mode: Failed");
@@ -217,12 +228,73 @@ initial begin;
   for(int i = 60; i <= 255; i++) begin
     send_serial_data(i, read_data); //Setting invalid address
     assert(load_cnt_ser == 8'b0) $display("load_cnt_ser on reg %0d: Passed", i);
-      else $display("load_cnt_ser on red %0d: Failed", i);
+      else $display("load_cnt_ser on reg %0d: Failed", i);
     assert(select_reg == 3'b111) $display("select_reg on reg %0d: Passed", i);
       else $error("select_reg on reg %0d: Failed", i);
 
     int_reset();
   end
+
+  //Case 6: Testing Instruction Driver
+  send_serial_data(8'b0000_0010, read_data); //address set to instruction
+  send_serial_data(INST_RST, read_data); //sending reset instruction
+  iclk = 1;
+  sclk = 1;
+  #25;
+  iclk = 0; //waiting to see if pulse
+  sclk = 0;
+  #25;
+  assert(inst_rst == 1 && inst_readout == 0 && inst_start == 0 && clk_enable == 0) $display("Sending reset command: Passed");
+    else $display("Sending reset command: Failed");
+  iclk = 1;
+  sclk = 1;
+  #25;
+  iclk = 0; //waiting to see if pulse
+  sclk = 0;
+  #25;
+  assert(inst_rst == 0 && inst_readout == 0 && inst_start == 0 && clk_enable == 0) $display("Start reset finished: Passed");
+    else $display("Start reset finished: Failed");
+  int_reset();
+
+  send_serial_data(8'b0000_0010, read_data); //address set to instruction
+  send_serial_data(INST_READOUT, read_data); //sending reset instruction
+  iclk = 1;
+  sclk = 1;
+  #25;
+  iclk = 0; //waiting to see if pulse
+  sclk = 0;
+  #25;
+  assert(inst_rst == 0 && inst_readout == 1 && inst_start == 0 && clk_enable == 0) $display("Sending readout command: Passed");
+    else $display("Sending readout command: Failed");
+  iclk = 1;
+  sclk = 1;
+  #25;
+  iclk = 0; //waiting to see if pulse
+  sclk = 0;
+  #25;
+  assert(inst_rst == 0 && inst_readout == 0 && inst_start == 0 && clk_enable == 0) $display("Start readout finished: Passed");
+    else $display("Start readout finished: Failed");
+  int_reset();
+
+  send_serial_data(8'b0000_0010, read_data); //address set to instruction
+  send_serial_data(INST_START, read_data); //sending reset instruction
+  iclk = 1;
+  sclk = 1;
+  #25;
+  iclk = 0; //waiting to see if pulse
+  sclk = 0;
+  #25;
+  assert(inst_rst == 0 && inst_readout == 0 && inst_start == 1 && clk_enable == 1) $display("Sending start command: Passed");
+    else $display("Sending start command: Failed");
+  iclk = 1;
+  sclk = 1;
+  #25;
+  iclk = 0; //waiting to see if pulse
+  sclk = 0;
+  #25;
+  assert(inst_rst == 0 && inst_readout == 0 && inst_start == 0 && clk_enable == 1) $display("Start command finished: Passed");
+    else $display("Start command finished: Failed");
+  int_reset();
 
   $finish;
 end

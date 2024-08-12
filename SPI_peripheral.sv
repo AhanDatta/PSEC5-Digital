@@ -1,8 +1,5 @@
 //This file rolls up the whole SPI Peripheral 
-//Serial data is sent into PICO
-//packaged data comes out, and is used to read and write.
-//The writing logic is handled in this file under SPI using standard latched regs
-//The read logic is handled by the POCI block. 
+//Full guide found here: https://www.overleaf.com/9261836185kyrcvjqcqhnc#db7835
 
 //Special registers 1-3 for trigger_ch_mask, instruction, mode
 //also to hold data for serial_out
@@ -223,6 +220,79 @@ module W_R_reg_readout (
 	end
 endmodule
 
+module inst_driver (
+    input logic rstn, //external
+    input logic [7:0] instruction,
+    input logic [7:0] mux_control_signal,
+    input logic iclk,
+    input logic msg_flag,
+    output logic clk_enable, 
+    output logic inst_rst,
+    output logic inst_readout,
+    output logic inst_start
+);
+    always_comb begin
+        if (!rstn) begin
+            clk_enable = 0;
+        end
+        else if (instruction == 8'd3) begin //start instruction
+            clk_enable = 1;
+        end
+        else begin //any other instruction
+            clk_enable = 0;
+        end
+    end
+
+    logic listen_for_iclk; //check that new data was written and address is on instruction
+    always_ff @(posedge msg_flag or negedge rstn) begin
+        if (!rstn) begin
+            listen_for_iclk <= 0;
+        end
+        else if (mux_control_signal == 8'd2) begin
+            listen_for_iclk <= 1;
+        end
+        else begin
+            listen_for_iclk <= 0;
+        end
+    end
+
+    always_ff @(posedge iclk or negedge rstn) begin
+        if (!rstn) begin
+            inst_rst <= 0;
+            inst_readout <= 0;
+            inst_start <= 0;
+        end
+        else if (listen_for_iclk) begin
+            if (instruction == 8'd1) begin
+                inst_rst <= 1;
+                inst_readout <= 0;
+                inst_start <= 0;
+            end
+            else if (instruction == 8'd2) begin
+                inst_rst <= 0;
+                inst_readout <= 1;
+                inst_start <= 0;
+            end
+            else if (instruction == 8'd3) begin
+                inst_rst <= 0;
+                inst_readout <= 0;
+                inst_start <= 1;
+            end
+            else begin //Disallowed value for instruction
+                inst_rst <= 0;
+                inst_readout <= 0;
+                inst_start <= 0;
+            end
+            listen_for_iclk <= 0; //Pulse for only 1 iclk cycle
+        end
+        else begin //address not on instruction, or no new data
+            inst_rst <= 0;
+            inst_readout <= 0;
+            inst_start <= 0;
+        end
+    end
+endmodule
+
 //This is the full digital SPI communication section
 module SPI (
     input logic serial_in,
@@ -230,11 +300,14 @@ module SPI (
     input logic [7:0] pll_locked, //address 60
     input logic iclk, //internal clock 
     input logic rstn, //external reset
+    output logic clk_enable, //1: START; 0: else; HELD
+    output logic inst_rst, // instr == 1
+    output logic inst_readout, //instr == 2
+    output logic inst_start, //instr == 3
     output logic [7:0] load_cnt_ser,
     output logic [2:0] select_reg,
     output logic [7:0] trigger_channel_mask, //address 1
-    output logic [7:0] instruction, //address 2
-    output logic [7:0] mode, //address 3
+    output logic [7:0] mode, //address 3 
     output logic [7:0] disc_polarity, //address 61
     output logic [7:0] vco_control, //address 62
     output logic [7:0] pll_div_ratio, //address 63
@@ -245,16 +318,20 @@ module SPI (
     //different kinds of reset
     logic sclk_stop_rstn;
     logic full_rstn;
-    logic msg_flag;
     always_comb begin
         full_rstn = rstn & sclk_stop_rstn; 
     end
+
+    logic [7:0] instruction; //address 2; MAKE DRIVER: use iclk to hold clk_enable and pulse inst outputs using instruction
+
+    //Flags from PICO
+    logic msg_flag;
 
     //Data from PICO to registers and POCI
     logic [7:0] write_data;
     logic [7:0] mux_control_signal;
     logic [7:0] input_mux_latch_sgnl; //Uses mux_control_signal to select reg to write to
-
+    
     //Gets the input into a usable form
     PICO in (
         .serial_in (serial_in), 
@@ -279,6 +356,19 @@ module SPI (
     latched_write_reg trig_delay_reg(.rstn (rstn), .data(write_data), .latch_en (input_mux_latch_sgnl[7]), .stored_data (trig_delay));
 
     input_mux write_mux (.rstn (full_rstn), .sclk (sclk), .addr (mux_control_signal), .latch_signal (input_mux_latch_sgnl));
+
+    //logic to drive pins related to instruction
+    inst_driver instruction_driver (
+        .rstn(rstn), 
+        .instruction(instruction), 
+        .mux_control_signal (mux_control_signal), 
+        .iclk (iclk), 
+        .msg_flag (msg_flag),
+        .clk_enable (clk_enable),
+        .inst_rst (inst_rst),
+        .inst_readout (inst_readout),
+        .inst_start (inst_start)
+        );
 
     //Readout from registers 1-3
     W_R_reg_readout data_out (
