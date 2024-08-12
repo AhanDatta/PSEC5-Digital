@@ -1,10 +1,6 @@
-`timescale 100ps/100ps
+`timescale 1ns/1ps
 
-module Testbench;
-
-
-//i.e 1 full message (8 bits) should have MSG_SIZE = 2;
-
+module Testbench();
 
 
 reg INST_START;
@@ -30,7 +26,7 @@ wire TRIGGERB;
 wire TRIGGERC;
 wire TRIGGERD;
 wire TRIGGERE;
-wire TRIGGERA;
+wire TRIGGERAC;
 wire TRIGGERBC;
 wire TRIGGERCC;
 wire TRIGGERDC;
@@ -51,14 +47,14 @@ wire CNT_SE;
 
 
 
-PSEC5_Single_Channel_Digital_Block UUT(
+PSEC5_CH_DIGITAL UUT(
 //inputs
 
-.INST_STAR(INST_STAR),
+.INST_START(INST_START),
 .INST_STOP(INST_STOP),
-.INST_READ(INST_READ),
+.INST_READOUT(INST_READOUT),
 .RSTB(RSTB),
-.DISCRIMIN(DISCRIMIN),
+.DISCRIMINATOR_OUTPUT(DISCRIMINATOR_OUTPUT),
 .SPI_CLK(SPI_CLK),
 .CA(CA),
 .CB(CB),
@@ -87,32 +83,43 @@ PSEC5_Single_Channel_Digital_Block UUT(
             end
 
 initial begin
-        SPI_CLK <= 0;
-INST_START <= 1'b1;       
-INST_STOP <= 1'b0;        
-INST_READOUT <= 1'b0;                 
-DISCRIMINATOR_OUTPUT <= 1'b0;
+SPI_CLK <= 0;       
+INST_START <= 1'b0;
+#10
+INST_START <= 1'b1;
+#0.5
+INST_START <= 1'b0;
+#200
+
+INST_STOP <= 1'b0;
+#10
+INST_STOP <= 1'b1;
+#0.5
+INST_STOP <= 1'b0;
+#200
+
+INST_READOUT <= 1'b0;
+#10
+INST_READOUT <= 1'b1;
+#0.5
+INST_READOUT <= 1'b0;
+#200
+
+SELECT_REG <= 3'b010;
+
+LOAD_CNT_SER <= 1'b0;
+#10
+LOAD_CNT_SER <= 1'b1;
+#0.5
+LOAD_CNT_SER <= 1'b0;
+#200
+        
 CA <= 10'b0000000000;
 CB <= 10'b1111111111;         
 CC <= 10'b1010101010;     
 CD <= 10'b0101010101;        
 CE <= 10'b1111000011;       
-MODE <= 1'b0;             
-DISCRIMINATOR_POLARITY <= 1'b0;
-SELECT_REG <= 3'b001; 
-LOAD_CNT_SER <= 1'b0;     
-PREMATURE_TRIGGER <= 1'b0;
-        
-        
-        SPI_CLK <= 1'b0;//I moved 
-        
-        RSTB <= 1'b1;
-        #5
-        RSTB <= 1'b0;
-        #5
-        RSTB <= 1'b1;
-        #5
 
-
+end
 
 endmodule
