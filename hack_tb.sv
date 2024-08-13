@@ -5,7 +5,7 @@ module hack_tb();
   //Want to test some special cases
 
   //Select if want verbose readout
-  logic DBG_READOUT = 0;
+  logic DBG_READOUT = 1;
 
   //clock for simulation
   logic clk;
@@ -238,60 +238,60 @@ initial begin;
   //Case 6: Testing Instruction Driver
   send_serial_data(8'b0000_0010, read_data); //address set to instruction
   send_serial_data(INST_RST, read_data); //sending reset instruction
+  @(posedge clk);
   iclk = 1;
   sclk = 1;
-  #25;
-  iclk = 0; //waiting to see if pulse
+  @(negedge clk);
+  iclk = 0; 
   sclk = 0;
-  #25;
   assert(inst_rst == 1 && inst_readout == 0 && inst_start == 0 && clk_enable == 0) $display("Sending reset command: Passed");
     else $display("Sending reset command: Failed");
+  @(posedge clk);
   iclk = 1;
   sclk = 1;
-  #25;
-  iclk = 0; //waiting to see if pulse
+  @(negedge clk);
+  iclk = 0; 
   sclk = 0;
-  #25;
   assert(inst_rst == 0 && inst_readout == 0 && inst_start == 0 && clk_enable == 0) $display("Start reset finished: Passed");
     else $display("Start reset finished: Failed");
   int_reset();
 
   send_serial_data(8'b0000_0010, read_data); //address set to instruction
   send_serial_data(INST_READOUT, read_data); //sending reset instruction
+  @(posedge clk);
   iclk = 1;
   sclk = 1;
-  #25;
-  iclk = 0; //waiting to see if pulse
+  @(negedge clk);
+  iclk = 0; 
   sclk = 0;
-  #25;
   assert(inst_rst == 0 && inst_readout == 1 && inst_start == 0 && clk_enable == 0) $display("Sending readout command: Passed");
     else $display("Sending readout command: Failed");
+  @(posedge clk);
   iclk = 1;
   sclk = 1;
-  #25;
-  iclk = 0; //waiting to see if pulse
+  @(negedge clk);
+  iclk = 0; 
   sclk = 0;
-  #25;
   assert(inst_rst == 0 && inst_readout == 0 && inst_start == 0 && clk_enable == 0) $display("Start readout finished: Passed");
     else $display("Start readout finished: Failed");
   int_reset();
 
   send_serial_data(8'b0000_0010, read_data); //address set to instruction
   send_serial_data(INST_START, read_data); //sending reset instruction
+  @(posedge clk);
   iclk = 1;
   sclk = 1;
-  #25;
-  iclk = 0; //waiting to see if pulse
+  @(negedge clk);
+  iclk = 0; 
   sclk = 0;
-  #25;
   assert(inst_rst == 0 && inst_readout == 0 && inst_start == 1 && clk_enable == 1) $display("Sending start command: Passed");
     else $display("Sending start command: Failed");
+  @(posedge clk);
   iclk = 1;
   sclk = 1;
-  #25;
-  iclk = 0; //waiting to see if pulse
+  @(negedge clk);
+  iclk = 0; 
   sclk = 0;
-  #25;
   assert(inst_rst == 0 && inst_readout == 0 && inst_start == 0 && clk_enable == 1) $display("Start command finished: Passed");
     else $display("Start command finished: Failed");
   int_reset();

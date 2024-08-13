@@ -1,6 +1,106 @@
 //This file rolls up the whole SPI Peripheral 
 //Full guide found here: https://www.overleaf.com/9261836185kyrcvjqcqhnc#db7835
 
+//This is the full digital SPI communication section
+module SPI (
+    input logic serial_in,
+    input logic sclk,
+    input logic [7:0] pll_locked, //address 60
+    input logic iclk, //internal clock 
+    input logic rstn, //external reset
+    output logic clk_enable, //1: START; 0: else; HELD
+    output logic inst_rst, // instr == 1
+    output logic inst_readout, //instr == 2
+    output logic inst_start, //instr == 3
+    output logic [7:0] load_cnt_ser,
+    output logic [2:0] select_reg,
+    output logic [7:0] trigger_channel_mask, //address 1
+    output logic [7:0] mode, //address 3 
+    output logic [7:0] disc_polarity, //address 61
+    output logic [7:0] vco_control, //address 62
+    output logic [7:0] pll_div_ratio, //address 63
+    output logic [7:0] slow_mode, //address 64
+    output logic [7:0] trig_delay, //address 65 
+    output logic serial_out //partial serial out for addr 1-3
+);
+    //different kinds of reset
+    logic sclk_stop_rstn;
+    logic full_rstn;
+    always_comb begin
+        full_rstn = rstn & sclk_stop_rstn; 
+    end
+
+    logic [7:0] instruction; //address 2; MAKE DRIVER: use iclk to hold clk_enable and pulse inst outputs using instruction
+
+    //Flags from PICO
+    logic msg_flag;
+
+    //Data from PICO to registers and POCI
+    logic [7:0] write_data;
+    logic [7:0] mux_control_signal;
+    logic [7:0] input_mux_latch_sgnl; //Uses mux_control_signal to select reg to write to
+    
+    //Gets the input into a usable form
+    PICO in (
+        .serial_in (serial_in), 
+        .sclk (sclk), 
+        .iclk (iclk), 
+        .rstn (rstn), //full rstn is computed inside PICO
+        .msg_flag (msg_flag),
+        .sclk_stop_rstn (sclk_stop_rstn), 
+        .write_data (write_data), 
+        .mux_control_signal (mux_control_signal)
+    );
+
+    //instantiating the special registers
+    //only use external rstn for these to not zero the data out after we stop writing
+    latched_write_reg trigger_ch_mask_reg (.rstn (rstn), .data (write_data), .latch_en (input_mux_latch_sgnl[0]), .stored_data (trigger_channel_mask));
+    latched_write_reg instruction_reg (.rstn (rstn), .data (write_data), .latch_en (input_mux_latch_sgnl[1]), .stored_data (instruction));
+    latched_write_reg mode_reg (.rstn (rstn), .data (write_data), .latch_en (input_mux_latch_sgnl[2]), .stored_data (mode));
+    latched_write_reg disc_polarity_reg(.rstn (rstn), .data(write_data), .latch_en (input_mux_latch_sgnl[3]), .stored_data (disc_polarity));
+    latched_write_reg vco_control_reg(.rstn (rstn), .data(write_data), .latch_en (input_mux_latch_sgnl[4]), .stored_data (vco_control));
+    latched_write_reg pll_div_ratio_reg(.rstn (rstn), .data(write_data), .latch_en (input_mux_latch_sgnl[5]), .stored_data (pll_div_ratio));
+    latched_write_reg slow_mode_reg(.rstn (rstn), .data(write_data), .latch_en (input_mux_latch_sgnl[6]), .stored_data (slow_mode));
+    latched_write_reg trig_delay_reg(.rstn (rstn), .data(write_data), .latch_en (input_mux_latch_sgnl[7]), .stored_data (trig_delay));
+
+    input_mux write_mux (.rstn (full_rstn), .sclk (sclk), .addr (mux_control_signal), .latch_signal (input_mux_latch_sgnl));
+
+    //logic to drive pins related to instruction
+    inst_driver instruction_driver (
+        .rstn(rstn), 
+        .instruction(instruction), 
+        .mux_control_signal (mux_control_signal), 
+        .iclk (iclk), 
+        .sclk (sclk),
+        .msg_flag (msg_flag),
+        .clk_enable (clk_enable),
+        .inst_rst (inst_rst),
+        .inst_readout (inst_readout),
+        .inst_start (inst_start)
+        );
+
+    //Readout from registers 1-3
+    W_R_reg_readout data_out (
+        .trigger_channel_mask (trigger_channel_mask),
+        .instruction (instruction),
+        .mode (mode),
+        .disc_polarity (disc_polarity),
+        .vco_control (vco_control),
+        .pll_div_ratio (pll_div_ratio),
+        .pll_locked (pll_locked),
+        .slow_mode (slow_mode),
+        .trig_delay (trig_delay),
+        .mux_control_signal (mux_control_signal),
+        .msg_flag (msg_flag),
+        .sclk (sclk),
+        .rstn (full_rstn),
+        .serial_out (serial_out)
+    );
+
+    //Output for the readout of regs 4-59
+    convert_addr addr_out (.rstn (full_rstn), .mux_control_signal (mux_control_signal), .load_cnt_ser (load_cnt_ser), .select_reg (select_reg));
+endmodule
+
 //Special registers 1-3 for trigger_ch_mask, instruction, mode
 //also to hold data for serial_out
 module latched_write_reg (
@@ -224,6 +324,7 @@ module inst_driver (
     input logic rstn, //external
     input logic [7:0] instruction,
     input logic [7:0] mux_control_signal,
+    input logic sclk,
     input logic iclk,
     input logic msg_flag,
     output logic clk_enable, 
@@ -243,151 +344,85 @@ module inst_driver (
         end
     end
 
-    logic listen_for_iclk; //check that new data was written and address is on instruction
-    always_ff @(posedge msg_flag or negedge rstn) begin
-        if (!rstn) begin
-            listen_for_iclk <= 0;
-        end
-        else if (mux_control_signal == 8'd2) begin
-            listen_for_iclk <= 1;
-        end
-        else begin
-            listen_for_iclk <= 0;
-        end
-    end
+    pulse_synchronizer rst_synch (
+        .sclk (sclk),
+        .spulse(msg_flag && mux_control_signal == 8'd2 && instruction == 8'd1),
+        .rstn (rstn),
+        .iclk (iclk),
+        .ipulse(inst_rst)
+    );
 
-    always_ff @(posedge iclk or negedge rstn) begin
-        if (!rstn) begin
-            inst_rst <= 0;
-            inst_readout <= 0;
-            inst_start <= 0;
-        end
-        else if (listen_for_iclk) begin
-            if (instruction == 8'd1) begin
-                inst_rst <= 1;
-                inst_readout <= 0;
-                inst_start <= 0;
-            end
-            else if (instruction == 8'd2) begin
-                inst_rst <= 0;
-                inst_readout <= 1;
-                inst_start <= 0;
-            end
-            else if (instruction == 8'd3) begin
-                inst_rst <= 0;
-                inst_readout <= 0;
-                inst_start <= 1;
-            end
-            else begin //Disallowed value for instruction
-                inst_rst <= 0;
-                inst_readout <= 0;
-                inst_start <= 0;
-            end
-            listen_for_iclk <= 0; //Pulse for only 1 iclk cycle
-        end
-        else begin //address not on instruction, or no new data
-            inst_rst <= 0;
-            inst_readout <= 0;
-            inst_start <= 0;
-        end
-    end
+    pulse_synchronizer readout_synch (
+        .sclk (sclk),
+        .spulse(msg_flag && mux_control_signal == 8'd2 && instruction == 8'd2),
+        .rstn (rstn),
+        .iclk (iclk),
+        .ipulse(inst_readout)
+    );
+
+    pulse_synchronizer start_synch (
+        .sclk (sclk),
+        .spulse(msg_flag && mux_control_signal == 8'd2 && instruction == 8'd3),
+        .rstn (rstn),
+        .iclk (iclk),
+        .ipulse(inst_start)
+    );
+
 endmodule
 
-//This is the full digital SPI communication section
-module SPI (
-    input logic serial_in,
-    input logic sclk,
-    input logic [7:0] pll_locked, //address 60
-    input logic iclk, //internal clock 
-    input logic rstn, //external reset
-    output logic clk_enable, //1: START; 0: else; HELD
-    output logic inst_rst, // instr == 1
-    output logic inst_readout, //instr == 2
-    output logic inst_start, //instr == 3
-    output logic [7:0] load_cnt_ser,
-    output logic [2:0] select_reg,
-    output logic [7:0] trigger_channel_mask, //address 1
-    output logic [7:0] mode, //address 3 
-    output logic [7:0] disc_polarity, //address 61
-    output logic [7:0] vco_control, //address 62
-    output logic [7:0] pll_div_ratio, //address 63
-    output logic [7:0] slow_mode, //address 64
-    output logic [7:0] trig_delay, //address 65 
-    output logic serial_out //partial serial out for addr 1-3
+module pulse_synchronizer #(
+  parameter logic RESET_VAL = 1'b0
+)(
+  input  logic sclk,
+  input  logic spulse,
+  input  logic rstn,
+  input  logic iclk,
+  output logic ipulse,
 );
-    //different kinds of reset
-    logic sclk_stop_rstn;
-    logic full_rstn;
-    always_comb begin
-        full_rstn = rstn & sclk_stop_rstn; 
+
+  logic src_pulse_1;
+  logic src_pulse_2;
+  
+  logic dest_pulse_1;
+  logic dest_pulse_2;
+
+  // src clock domain edge detection
+  always_ff @(posedge sclk or negedge rstn) begin
+    if (!rstn) begin
+      src_pulse_1 <= 1'b0;
+      src_pulse_2 <= 1'b0;
+    end else begin
+      src_pulse_1 <= spulse; //tracks src_pulse 1 src_clk cycle behind
+      src_pulse_2 <= (spulse & ~src_pulse_1) ^ src_pulse_2; //detects rising edge and holds
     end
+  end
 
-    logic [7:0] instruction; //address 2; MAKE DRIVER: use iclk to hold clk_enable and pulse inst outputs using instruction
+  sync_bits sync_Bits_Altera_1 (
+    .clk(dest_clk),
+    .in(src_pulse_2),
+    .out(dest_pulse_1)
+  );
 
-    //Flags from PICO
-    logic msg_flag;
+  always_ff @(posedge iclk or negedge rstn) begin
+    if (!rstn) begin
+      dest_pulse_2 <= RESET_VAL;
+      ipulse   <= 1'b0;
+    end else begin
+      dest_pulse_2 <= dest_pulse_1;
+      ipulse <= dest_pulse_1 ^ dest_pulse_2;
+    end
+  end
 
-    //Data from PICO to registers and POCI
-    logic [7:0] write_data;
-    logic [7:0] mux_control_signal;
-    logic [7:0] input_mux_latch_sgnl; //Uses mux_control_signal to select reg to write to
-    
-    //Gets the input into a usable form
-    PICO in (
-        .serial_in (serial_in), 
-        .sclk (sclk), 
-        .iclk (iclk), 
-        .rstn (rstn), //full rstn is computed inside PICO
-        .msg_flag (msg_flag),
-        .sclk_stop_rstn (sclk_stop_rstn), 
-        .write_data (write_data), 
-        .mux_control_signal (mux_control_signal)
-    );
+endmodule
 
-    //instantiating the special registers
-    //only use external rstn for these to not zero the data out after we stop writing
-    latched_write_reg trigger_ch_mask_reg (.rstn (rstn), .data (write_data), .latch_en (input_mux_latch_sgnl[0]), .stored_data (trigger_channel_mask));
-    latched_write_reg instruction_reg (.rstn (rstn), .data (write_data), .latch_en (input_mux_latch_sgnl[1]), .stored_data (instruction));
-    latched_write_reg mode_reg (.rstn (rstn), .data (write_data), .latch_en (input_mux_latch_sgnl[2]), .stored_data (mode));
-    latched_write_reg disc_polarity_reg(.rstn (rstn), .data(write_data), .latch_en (input_mux_latch_sgnl[3]), .stored_data (disc_polarity));
-    latched_write_reg vco_control_reg(.rstn (rstn), .data(write_data), .latch_en (input_mux_latch_sgnl[4]), .stored_data (vco_control));
-    latched_write_reg pll_div_ratio_reg(.rstn (rstn), .data(write_data), .latch_en (input_mux_latch_sgnl[5]), .stored_data (pll_div_ratio));
-    latched_write_reg slow_mode_reg(.rstn (rstn), .data(write_data), .latch_en (input_mux_latch_sgnl[6]), .stored_data (slow_mode));
-    latched_write_reg trig_delay_reg(.rstn (rstn), .data(write_data), .latch_en (input_mux_latch_sgnl[7]), .stored_data (trig_delay));
-
-    input_mux write_mux (.rstn (full_rstn), .sclk (sclk), .addr (mux_control_signal), .latch_signal (input_mux_latch_sgnl));
-
-    //logic to drive pins related to instruction
-    inst_driver instruction_driver (
-        .rstn(rstn), 
-        .instruction(instruction), 
-        .mux_control_signal (mux_control_signal), 
-        .iclk (iclk), 
-        .msg_flag (msg_flag),
-        .clk_enable (clk_enable),
-        .inst_rst (inst_rst),
-        .inst_readout (inst_readout),
-        .inst_start (inst_start)
-        );
-
-    //Readout from registers 1-3
-    W_R_reg_readout data_out (
-        .trigger_channel_mask (trigger_channel_mask),
-        .instruction (instruction),
-        .mode (mode),
-        .disc_polarity (disc_polarity),
-        .vco_control (vco_control),
-        .pll_div_ratio (pll_div_ratio),
-        .pll_locked (pll_locked),
-        .slow_mode (slow_mode),
-        .trig_delay (trig_delay),
-        .mux_control_signal (mux_control_signal),
-        .msg_flag (msg_flag),
-        .sclk (sclk),
-        .rstn (full_rstn),
-        .serial_out (serial_out)
-    );
-
-    //Output for the readout of regs 4-59
-    convert_addr addr_out (.rstn (full_rstn), .mux_control_signal (mux_control_signal), .load_cnt_ser (load_cnt_ser), .select_reg (select_reg));
+module sync_bits #(parameter SYNC_STAGES = 2) (
+    input logic clk,
+    input logic in,
+    output logic out
+);
+    logic [SYNC_STAGES-1:0] sync_regs = {SYNC_STAGES{1'b0}};
+    always_ff @(posedge clk) begin
+        sync_regs <= {sync_regs[SYNC_STAGES-2:0], in};
+        out <= sync_regs[SYNC_STAGES-1];
+    end
 endmodule

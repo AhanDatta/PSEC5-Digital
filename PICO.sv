@@ -50,7 +50,6 @@ output logic rstn_out //Goes to the buffer register to reset the clock divider
 );
 
     logic [2:0] count; //how many iclk cycles since last sclk
-    logic rstn_done; //tracks if a reset has already been sent out after some transaction
     always_ff @(posedge iclk, posedge sclk, negedge rstn) begin
         if (!rstn) begin
             count <= 0;
@@ -65,27 +64,11 @@ output logic rstn_out //Goes to the buffer register to reset the clock divider
 
     //reset logic based on count
     always_comb begin
-        if (rstn_done) begin
-            rstn_out = 1;
-        end
-        else if (count == 7) begin
+        if (count == 7) begin
             rstn_out = 0;
         end
         else begin
             rstn_out = 1;
-        end
-    end
-
-    //tracks if a reset has already been sent for this transaction
-    always_latch begin
-        if (!rstn) begin
-            rstn_done = 0;
-        end
-        else if (sclk) begin
-            rstn_done = 0;
-        end
-        else if (count == 7) begin
-            rstn_done = 1;
         end
     end
 endmodule
@@ -124,7 +107,7 @@ output logic [7:0] write_data, //the data that is output to be written
 output logic [7:0] address_pointer //controls the mux which regulates reads out the chosen digital reg
 );
     //Logic for addressing registers and writing
-    always_ff @(posedge msg_flag or negedge rstn) begin //this is one clock cycle off from buffer reg; NEED TO FIX
+    always_ff @(posedge msg_flag or negedge rstn) begin 
         if (!rstn) begin
             //write_data <= '0; Don't want this because want to maintain data in w/r regs after transaction
             address_pointer <= '0;
@@ -148,7 +131,6 @@ input logic sclk, //spi clock
 input logic iclk, //internal clock
 input logic rstn, //external reset
 output logic msg_flag,
-output logic data_set_flag,
 output logic sclk_stop_rstn, //From the clock comparator
 output logic [7:0] write_data, //Output data to write
 output logic [7:0] mux_control_signal //Output control signal for POCI mux
