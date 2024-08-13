@@ -159,7 +159,7 @@ module convert_addr (
     always_comb begin
         if (!rstn) begin
             load_cnt_ser = 8'b0;
-            select_reg = 3'b0;
+            select_reg = 3'b111;
         end
         else begin
             //Setting load_cnt_ser flag with LUT
@@ -344,9 +344,19 @@ module inst_driver (
         end
     end
 
+    logic [31:0] addr_prev;
+    always_ff @(posedge sclk or negedge rstn) begin
+        if(!rstn) begin
+            addr_prev <= '0;
+        end
+        else begin
+            addr_prev <= {addr_prev[23:0], mux_control_signal};
+        end
+    end
+
     pulse_synchronizer rst_synch (
         .sclk (sclk),
-        .spulse(msg_flag && mux_control_signal == 8'd2 && instruction == 8'd1),
+        .spulse(msg_flag && addr_prev[7:0] == 8'b10 && instruction == 8'd1),
         .rstn (rstn),
         .iclk (iclk),
         .ipulse(inst_rst)
@@ -354,7 +364,7 @@ module inst_driver (
 
     pulse_synchronizer readout_synch (
         .sclk (sclk),
-        .spulse(msg_flag && mux_control_signal == 8'd2 && instruction == 8'd2),
+        .spulse(msg_flag && addr_prev[7:0] == 8'b10 && instruction == 8'd2),
         .rstn (rstn),
         .iclk (iclk),
         .ipulse(inst_readout)
@@ -362,7 +372,7 @@ module inst_driver (
 
     pulse_synchronizer start_synch (
         .sclk (sclk),
-        .spulse(msg_flag && mux_control_signal == 8'd2 && instruction == 8'd3),
+        .spulse(msg_flag && addr_prev[7:0] == 8'b10 && instruction == 8'd3),
         .rstn (rstn),
         .iclk (iclk),
         .ipulse(inst_start)
@@ -370,14 +380,12 @@ module inst_driver (
 
 endmodule
 
-module pulse_synchronizer #(
-  parameter logic RESET_VAL = 1'b0
-)(
+module pulse_synchronizer (
   input  logic sclk,
   input  logic spulse,
   input  logic rstn,
   input  logic iclk,
-  output logic ipulse,
+  output logic ipulse
 );
 
   logic src_pulse_1;
@@ -398,14 +406,14 @@ module pulse_synchronizer #(
   end
 
   sync_bits sync_Bits_Altera_1 (
-    .clk(dest_clk),
+    .clk(iclk),
     .in(src_pulse_2),
     .out(dest_pulse_1)
   );
 
   always_ff @(posedge iclk or negedge rstn) begin
     if (!rstn) begin
-      dest_pulse_2 <= RESET_VAL;
+      dest_pulse_2 <= 0;
       ipulse   <= 1'b0;
     end else begin
       dest_pulse_2 <= dest_pulse_1;
