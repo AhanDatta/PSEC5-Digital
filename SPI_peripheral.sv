@@ -336,7 +336,7 @@ module inst_driver (
         if (!rstn) begin
             clk_enable = 0;
         end
-        else if (instruction == 8'd3) begin //start instruction
+        else if (instruction == 8'b0000_0011) begin //start instruction
             clk_enable = 1;
         end
         else begin //any other instruction
@@ -344,19 +344,27 @@ module inst_driver (
         end
     end
 
-    logic [31:0] addr_prev;
+    logic [15:0] addr_prev;
+    logic msg_flag_prev;
     always_ff @(posedge sclk or negedge rstn) begin
         if(!rstn) begin
             addr_prev <= '0;
+            msg_flag_prev <= 0;
         end
         else begin
-            addr_prev <= {addr_prev[23:0], mux_control_signal};
+            addr_prev <= {addr_prev[7:0], mux_control_signal};
+            msg_flag_prev <= msg_flag;
         end
+    end
+
+    logic combined_msg_flag;
+    always_comb begin
+        combined_msg_flag = msg_flag || msg_flag_prev;
     end
 
     pulse_synchronizer rst_synch (
         .sclk (sclk),
-        .spulse(msg_flag && addr_prev[7:0] == 8'b10 && instruction == 8'd1),
+        .spulse(combined_msg_flag && (addr_prev[7:0] == 8'b10 || addr_prev[15:8] == 8'b10) && instruction == 8'd1),
         .rstn (rstn),
         .iclk (iclk),
         .ipulse(inst_rst)
@@ -364,7 +372,7 @@ module inst_driver (
 
     pulse_synchronizer readout_synch (
         .sclk (sclk),
-        .spulse(msg_flag && addr_prev[7:0] == 8'b10 && instruction == 8'd2),
+        .spulse(combined_msg_flag && (addr_prev[7:0] == 8'b10 || addr_prev[15:8] == 8'b10) && instruction == 8'd2),
         .rstn (rstn),
         .iclk (iclk),
         .ipulse(inst_readout)
@@ -372,7 +380,7 @@ module inst_driver (
 
     pulse_synchronizer start_synch (
         .sclk (sclk),
-        .spulse(msg_flag && addr_prev[7:0] == 8'b10 && instruction == 8'd3),
+        .spulse(combined_msg_flag && (addr_prev[7:0] == 8'b10 || addr_prev[15:8] == 8'b10) && instruction == 8'd3),
         .rstn (rstn),
         .iclk (iclk),
         .ipulse(inst_start)
@@ -405,7 +413,7 @@ module pulse_synchronizer (
     end
   end
 
-  sync_bits sync_Bits_Altera_1 (
+  sync_bits sync_Bits_to_iclk (
     .clk(iclk),
     .in(src_pulse_2),
     .out(dest_pulse_1)

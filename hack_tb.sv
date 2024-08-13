@@ -68,6 +68,13 @@ module hack_tb();
     .serial_out (serial_out)
   );
 
+  //Pulse both clocks one time
+  task pulse_iclk ();
+    @(posedge clk);
+    iclk = 1;
+    @(negedge clk);
+    iclk = 0; 
+  endtask
 
   //external reseting the chip
   task ext_reset ();
@@ -109,7 +116,7 @@ endtask
 always @(posedge clk, negedge clk) begin
   if (DBG_READOUT) begin
     $display(
-      "time: %0d, sclk: %0b, iclk: %0b, rstn: %0b, serial_in: %0b, addr: %0b, load_cnt_ser: %0b, select_reg: %0b, tcm: %0b, inst: %0b, clk_enable: %0b, inst_rst: %0b,\n inst_readout: %0b, inst_start: %0b, mode: %0b, irstn: %0b, msgi: %0b, serial_out: %0b, readout: %0b, msg_flag %0b",
+      "time: %0d, sclk: %0b, iclk: %0b, rstn: %0b, serial_in: %0b, addr: %0b, load_cnt_ser: %0b, select_reg: %0b, tcm: %0b, inst: %0b, clk_enable: %0b, inst_rst: %0b,\n inst_readout: %0b, inst_start: %0b, mode: %0b, irstn: %0b, msgi: %0b, serial_out: %0b, readout: %0b, msg_flag: %0b",
       $time, sclk, iclk, rstn, serial_in, DUT.mux_control_signal, load_cnt_ser, select_reg, trigger_channel_mask, DUT.instruction, clk_enable, 
       inst_rst, inst_readout, inst_start, mode, DUT.sclk_stop_rstn, DUT.in.msgi, serial_out, read_data, DUT.msg_flag);
 
@@ -237,61 +244,43 @@ initial begin;
 
   //Case 6: Testing Instruction Driver
   send_serial_data(8'b0000_0010, read_data); //address set to instruction
-  send_serial_data(INST_RST, read_data); //sending reset instruction
-  @(posedge clk);
-  iclk = 1;
-  sclk = 1;
-  @(negedge clk);
-  iclk = 0; 
-  sclk = 0;
+  send_serial_data(INST_RST, read_data); 
+  for(int i = 0; i < 4; i++) begin
+    pulse_iclk();
+  end
   assert(inst_rst == 1 && inst_readout == 0 && inst_start == 0 && clk_enable == 0) $display("Sending reset command: Passed");
     else $display("Sending reset command: Failed");
-  @(posedge clk);
-  iclk = 1;
-  sclk = 1;
-  @(negedge clk);
-  iclk = 0; 
-  sclk = 0;
+  for(int i = 0; i < 4; i++) begin
+    pulse_iclk();
+  end
   assert(inst_rst == 0 && inst_readout == 0 && inst_start == 0 && clk_enable == 0) $display("Start reset finished: Passed");
     else $display("Start reset finished: Failed");
   int_reset();
 
   send_serial_data(8'b0000_0010, read_data); //address set to instruction
-  send_serial_data(INST_READOUT, read_data); //sending reset instruction
-  @(posedge clk);
-  iclk = 1;
-  sclk = 1;
-  @(negedge clk);
-  iclk = 0; 
-  sclk = 0;
+  send_serial_data(INST_READOUT, read_data); 
+  for(int i = 0; i < 4; i++) begin
+    pulse_iclk();
+  end
   assert(inst_rst == 0 && inst_readout == 1 && inst_start == 0 && clk_enable == 0) $display("Sending readout command: Passed");
     else $display("Sending readout command: Failed");
-  @(posedge clk);
-  iclk = 1;
-  sclk = 1;
-  @(negedge clk);
-  iclk = 0; 
-  sclk = 0;
+  for(int i = 0; i < 4; i++) begin
+    pulse_iclk();
+  end
   assert(inst_rst == 0 && inst_readout == 0 && inst_start == 0 && clk_enable == 0) $display("Start readout finished: Passed");
     else $display("Start readout finished: Failed");
   int_reset();
 
   send_serial_data(8'b0000_0010, read_data); //address set to instruction
-  send_serial_data(INST_START, read_data); //sending reset instruction
-  @(posedge clk);
-  iclk = 1;
-  sclk = 1;
-  @(negedge clk);
-  iclk = 0; 
-  sclk = 0;
+  send_serial_data(INST_START, read_data); 
+  for(int i = 0; i < 4; i++) begin
+    pulse_iclk();
+  end
   assert(inst_rst == 0 && inst_readout == 0 && inst_start == 1 && clk_enable == 1) $display("Sending start command: Passed");
     else $display("Sending start command: Failed");
-  @(posedge clk);
-  iclk = 1;
-  sclk = 1;
-  @(negedge clk);
-  iclk = 0; 
-  sclk = 0;
+  for(int i = 0; i < 4; i++) begin
+    pulse_iclk();
+  end
   assert(inst_rst == 0 && inst_readout == 0 && inst_start == 0 && clk_enable == 1) $display("Start command finished: Passed");
     else $display("Start command finished: Failed");
   int_reset();
