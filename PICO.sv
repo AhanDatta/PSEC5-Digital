@@ -49,12 +49,12 @@ input logic rstn, //external reset
 output logic rstn_out //Goes to the buffer register to reset the clock divider
 );
 
-    logic [2:0] count; //how many iclk cycles since last sclk
+    logic [15:0] count; //how many iclk cycles since last sclk
     always_ff @(posedge iclk, posedge sclk, negedge rstn) begin
         if (!rstn) begin
             count <= 0;
         end
-        else if (sclk == 1) begin
+        else if (sclk) begin
             count <= 0;
         end
         else begin
