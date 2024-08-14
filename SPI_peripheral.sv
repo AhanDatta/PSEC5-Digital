@@ -26,11 +26,9 @@ module SPI (
     //different kinds of reset
     logic sclk_stop_rstn;
     logic full_rstn;
-    always_comb begin
-        full_rstn = rstn & sclk_stop_rstn; 
-    end
+    assign full_rstn = rstn & sclk_stop_rstn; 
 
-    logic [7:0] instruction; //address 2; MAKE DRIVER: use iclk to hold clk_enable and pulse inst outputs using instruction
+    logic [7:0] instruction; //address 2
 
     //Flags from PICO
     logic msg_flag;
@@ -111,7 +109,7 @@ module latched_write_reg (
 );
     always_latch begin
         if (!rstn) begin
-            stored_data = '0;
+            stored_data = 8'b0;
         end
         else if (latch_en) begin
             stored_data = data;
@@ -292,18 +290,20 @@ module W_R_reg_readout (
         if (!rstn) begin
             idata = 8'b0;
         end
-        unique case (mux_control_signal)
-            1: idata = trigger_channel_mask;
-            2: idata = instruction;
-            3: idata = mode;
-            60: idata = pll_locked;
-            61: idata = disc_polarity;
-            62: idata = vco_control;
-            63: idata = pll_div_ratio;
-            64: idata = slow_mode;
-            65: idata = trig_delay;
-            default: idata = 8'b0;
-        endcase
+        else begin
+            unique case (mux_control_signal)
+                1: idata = trigger_channel_mask;
+                2: idata = instruction;
+                3: idata = mode;
+                60: idata = pll_locked;
+                61: idata = disc_polarity;
+                62: idata = vco_control;
+                63: idata = pll_div_ratio;
+                64: idata = slow_mode;
+                65: idata = trig_delay;
+                default: idata = 8'b0;
+            endcase
+        end
     end
 
     latched_write_reg latched_data (.rstn (rstn), .data (idata), .latch_en (msg_flag), .stored_data (held_data));
@@ -311,7 +311,7 @@ module W_R_reg_readout (
 	always_ff @(posedge sclk or negedge rstn) begin
 		if (!rstn) begin
 			serial_out <= 0;
-			index_pointer <= '0;
+			index_pointer <= 3'b0;
 		end
 		else begin
 			serial_out <= held_data[index_pointer];
@@ -348,7 +348,7 @@ module inst_driver (
     logic msg_flag_prev;
     always_ff @(posedge sclk or negedge rstn) begin
         if(!rstn) begin
-            addr_prev <= '0;
+            addr_prev <= 16'b0;
             msg_flag_prev <= 0;
         end
         else begin
@@ -358,9 +358,7 @@ module inst_driver (
     end
 
     logic combined_msg_flag;
-    always_comb begin
-        combined_msg_flag = msg_flag || msg_flag_prev;
-    end
+    assign combined_msg_flag = msg_flag || msg_flag_prev;
 
     pulse_synchronizer rst_synch (
         .sclk (sclk),
