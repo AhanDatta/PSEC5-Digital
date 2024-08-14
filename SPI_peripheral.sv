@@ -415,6 +415,7 @@ module pulse_synchronizer (
 
   sync_bits sync_Bits_to_iclk (
     .clk(iclk),
+    .rstn(rstn),
     .in(src_pulse_2),
     .out(dest_pulse_1)
   );
@@ -433,12 +434,18 @@ endmodule
 
 module sync_bits #(parameter SYNC_STAGES = 2) (
     input logic clk,
+    input logic rstn,
     input logic in,
     output logic out
 );
-    logic [SYNC_STAGES-1:0] sync_regs = {SYNC_STAGES{1'b0}};
-    always_ff @(posedge clk) begin
-        sync_regs <= {sync_regs[SYNC_STAGES-2:0], in};
-        out <= sync_regs[SYNC_STAGES-1];
+    logic [SYNC_STAGES-1:0] sync_regs;
+    always_ff @(posedge clk or negedge rstn) begin
+        if (!rstn) begin
+            sync_regs <= {SYNC_STAGES{1'b0}};
+        end
+        else begin
+            sync_regs <= {sync_regs[SYNC_STAGES-2:0], in};
+            out <= sync_regs[SYNC_STAGES-1];
+        end
     end
 endmodule
