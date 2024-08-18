@@ -38,7 +38,7 @@ wire TRIGGERCC;
 wire TRIGGERDC;
 wire CNT_SER;
 
-
+int counter;
 
 
 
@@ -51,6 +51,7 @@ PSEC5_CH_DIGITAL UUT(
 .INST_READOUT(INST_READOUT),
 .RSTB(RSTB),
 .DISCRIMINATOR_OUTPUT(DISCRIMINATOR_OUTPUT),
+.DISCRIMINATOR_POLARITY(DISCRIMINATOR_POLARITY),
 .SPI_CLK(SPI_CLK),
 .CA(CA),
 .CB(CB),
@@ -58,6 +59,10 @@ PSEC5_CH_DIGITAL UUT(
 .CD(CD),
 .CE(CE),
 .FCLK(FCLK),
+.MODE(MODE),
+.SELECT_REG(SELECT_REG),
+.LOAD_CNT_SER(LOAD_CNT_SER),
+.TRIG_DELAY(TRIG_DELAY),
 
 //outputs
 .STOP_REQUEST(STOP_REQUEST),
@@ -75,83 +80,84 @@ PSEC5_CH_DIGITAL UUT(
 );
 
 
-        always begin
+        always begin //25ns SPI_CLK
             #25 SPI_CLK = ~SPI_CLK;
             end
 
-        always begin
+        always begin //0.2ns FCLK
             #0.2 FCLK = ~FCLK;
             end 
 
-//        always begin
-//            #2 DISCRIMINATOR_OUTPUT = ~DISCRIMINATOR_OUTPUT;
-//            end
+        always begin //Counter variable keeping track of total time
+        #1 counter <= counter + 1;
+        end
+        
+
+        always begin // Timed delay of DISCRIMINATOR_OUTPUT, after 25ns it flips every 2ns from there on
+        #2
+            if (counter > 25) begin
+              DISCRIMINATOR_OUTPUT = ~DISCRIMINATOR_OUTPUT;
+              end
+            end
 
 initial begin
 
 
-RSTB <= 1'b0;
+
+counter <= 0; //Used to keep track of total time passed, and intialize timed compents at their correct intervals
+
+RSTB <= 1'b1; //Pulsing reset
 #1
-RSTB <= 1'b1;
+RSTB <= 1'b0;
 #5
-RSTB <= 1'b0;
+RSTB <= 1'b1;
 #1
 
 
-CA <= 10'b0000000000;
+CA <= 10'b0000000000; //Arbitrary values 
 CB <= 10'b1111111111;         
 CC <= 10'b1010101010;     
 CD <= 10'b0101010101;        
 CE <= 10'b1111000011; 
 
-//ctmp <= 56'b00000000000000000000000000000000000000000000000000000000;
 
-INST_STOP <= 1'b0;
+INST_STOP <= 1'b0; //Initializing values of variables in the block
 INST_READOUT <= 1'b0;
 SPI_CLK <= 1'b0; 
 FCLK <= 1'b0;   
 MODE <= 2'b00;
-DISCRIMINATOR_POLARITY <= 1'b0;
+DISCRIMINATOR_POLARITY = 1;
 TRIG_DELAY <= 4'b0010;
 DISCRIMINATOR_OUTPUT <= 1'b0;
+SELECT_REG <= 3'b010;
 
-INST_START <= 1'b0;
+INST_START <= 1'b0; //Pulse INST_START
 #10
 INST_START <= 1'b1;
 #5
 INST_START <= 1'b0;
 #200
 
-INST_STOP <= 1'b0;
+
+INST_STOP <= 1'b0; //Pulse INST_STOP
 #10
 INST_STOP <= 1'b1;
 #5
 INST_STOP <= 1'b0;
 #200
 
-INST_READOUT <= 1'b0;
+INST_READOUT <= 1'b0; //Pulse INST_READOUT
 #10
 INST_READOUT <= 1'b1;
 #5
 INST_READOUT <= 1'b0;
 #200
 
-#100
-
-LOAD_CNT_SER <= 1'b0;
+LOAD_CNT_SER <= 1'b0; //Pulse LOAD_CNT_SER
 #10
 LOAD_CNT_SER <= 1'b1;
 #5
 LOAD_CNT_SER <= 1'b0;
-
-#100
-
-DISCRIMINATOR_OUTPUT <= 1'b0;
-#10
-DISCRIMINATOR_OUTPUT <= 1'b1;
-#5
-DISCRIMINATOR_OUTPUT <= 1'b0;
-
      
 
 end
