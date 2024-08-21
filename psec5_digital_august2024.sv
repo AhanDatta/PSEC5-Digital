@@ -61,6 +61,17 @@ module PSEC5_CH_DIGITAL (
     logic trigger;
     logic [2:0] trigger_cnt; //# of legitimate trigger fires. 
     logic premature_trigger;
+    logic [9:0] stop_req_counter;
+    logic stop_req_counter_rst
+
+    always_ff @(posedge FCLK, posedge stop_req_counter_rst) begin
+        if(stop_req_counter_rst) begin
+            stop_req_counter <= 0
+        end
+        else begin
+            stop_req_counter <= stop_req_counter + 1
+        end
+    end
     
     always_ff @(posedge FCLK, posedge INST_START) begin
         if(INST_START) begin
@@ -137,36 +148,13 @@ module PSEC5_CH_DIGITAL (
         
     end
 
-    always_comb begin
-        case (current_state)
-            STATE_STOPPED: begin
-                STOP_REQUEST = 0;
-            end
-            STATE_INIT: begin
-                STOP_REQUEST = 0;
-            end
-            STATE_READOUT: begin
-                STOP_REQUEST = 0;
-            end
-            //Don't request stop when nothing is recorded.
-            STATE_SAMPLING_A: begin
-                STOP_REQUEST = 0;
-            end
-            //Don't request stop when nothing is recorded.
-            STATE_SAMPLING_A_AND_B: begin
-                STOP_REQUEST = 0;
-            end
-            //Don't request stop when nothing is recorded.
-            STATE_SAMPLING_ALL: begin
-                STOP_REQUEST = 0;
-            end
-            default: begin
-                STOP_REQUEST = (CA - CE < 10'b1000000);// 25.6 ns (5GHz) / 51.2 ns (2.5GHz) before the slow SCA overwrites the first edge. 
-                //TODO: Verify this logic's behavior.
-                //If your signal count is W bits wide and N is a constant (generic/parameter) that is also a power of 2 (such that N == 2**n), then count < N will synthesize into a simple NOR of W-n bits. If a minimal counter width W is used, this will be a single bit inverter which can typically be absorbed into the next logical function.
-            end
-        
-        endcase
+    always_ff @(posedge trigger, posedge INST_START) begin
+        if (INST_START) begin
+            STOP_REQUEST <= 0;
+        end
+        else begin
+            STOP_REQUEST <= 1;
+        end
     end
 
     always_ff @(posedge trigger, negedge RSTB, posedge start1, posedge start2, posedge start4, posedge INST_STOP, posedge INST_READOUT) begin
@@ -258,17 +246,15 @@ module PSEC5_CH_DIGITAL (
         end
     end
 
-    always_ff @(posedge INST_STOP) begin
-        if (INST_STOP) begin
-            ctmp <= {3'b0, trigger_cnt, CE, CD, CC, CB, CA}; //56 bits total.
-        end
+    always_ff @(posedge INST_READOUT) begin
+        ctmp <= {3'b0, trigger_cnt, CE, CD, CC, CB, CA}; //56 bits total.
     end
 
     always_ff @(posedge SPI_CLK, posedge LOAD_CNT_SER) begin
         if (LOAD_CNT_SER) begin
             for (int i = 0; i < 7; i++) begin
                 if(SELECT_REG == i)
-                    cbuffer <= ctmp[i*8+7:i*8];
+                    cbuffer <= ctmp[i*8+:8];
             end
             if(SELECT_REG == 7) begin
                 cbuffer <= 0;
