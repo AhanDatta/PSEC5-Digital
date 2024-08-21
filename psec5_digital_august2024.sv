@@ -61,17 +61,6 @@ module PSEC5_CH_DIGITAL (
     logic trigger;
     logic [2:0] trigger_cnt; //# of legitimate trigger fires. 
     logic premature_trigger;
-    logic [9:0] stop_req_counter;
-    logic stop_req_counter_rst
-
-    always_ff @(posedge FCLK, posedge stop_req_counter_rst) begin
-        if(stop_req_counter_rst) begin
-            stop_req_counter <= 0
-        end
-        else begin
-            stop_req_counter <= stop_req_counter + 1
-        end
-    end
     
     always_ff @(posedge FCLK, posedge INST_START) begin
         if(INST_START) begin
