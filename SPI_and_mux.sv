@@ -1,4 +1,4 @@
-module tb (
+module SPI_and_mux (
     input logic serial_in,
     input logic sclk,
     input logic [7:0] pll_locked, //address 60
