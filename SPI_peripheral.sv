@@ -440,6 +440,7 @@ module sync_bits #(parameter SYNC_STAGES = 2) (
     always_ff @(posedge clk or negedge rstn) begin
         if (!rstn) begin
             sync_regs <= {SYNC_STAGES{1'b0}};
+            out <= 1'b0;
         end
         else begin
             sync_regs <= {sync_regs[SYNC_STAGES-2:0], in};
