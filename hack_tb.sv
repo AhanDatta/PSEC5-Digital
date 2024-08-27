@@ -4,47 +4,77 @@ module hack_tb();
   //THE FOLLOWING CODE IS A TEMPORARY HACK
   //Want to test some special cases
 
+  //Select if want verbose readout
+  logic DBG_READOUT = 1;
+
   //clock for simulation
   logic clk;
-  always #10 clk = ~clk; //20 ns clock period
+  always #25 clk = ~clk; //50 ns clock period
 
   logic rstn;
   logic iclk;
   logic sclk;
-  logic [49:0] ch0;
-  logic [49:0] ch1;
-  logic [49:0] ch2;
-  logic [49:0] ch3;
-  logic [49:0] ch4;
-  logic [49:0] ch5;
-  logic [49:0] ch6;
-  logic [49:0] ch7;
   logic serial_in;
+  logic [7:0] load_cnt_ser;
+  logic [2:0] select_reg;
+  logic [7:0] trigger_channel_mask;
+  logic clk_enable;
+  logic inst_rst;
+  logic inst_readout;
+  logic inst_start;
+  logic [7:0] mode;
+  logic [7:0] disc_polarity;
+  logic [7:0] vco_control;
+  logic [7:0] pll_div_ratio;
+  logic [7:0] slow_mode;
+  logic [7:0] trig_delay;
   logic serial_out;
 
   //setting all values
   //can change to test if it matters (it shouldn't)
-  logic [7:0] tcm_data = 8'h10;
-  logic [7:0] instruction_data = 8'h20;
-  logic [7:0] mode_data = 8'h30;
-  logic [7:0] last_read_byte;
+  logic [7:0] tcm_data = 8'b0010_1001;
+  logic [7:0] instruction_data = 8'b0000_0001;
+  logic [7:0] INST_RST = 8'b0000_0001;
+  logic [7:0] INST_READOUT = 8'b0000_0010;
+  logic [7:0] INST_START = 8'b0000_0011;
+  logic [7:0] mode_data = 8'b0000_0100;
+  logic [7:0] disc_polarity_data = 8'b1010_1001;
+  logic [7:0] vco_control_data = 8'b0011_0110;
+  logic [7:0] pll_div_ratio_data = 8'b0000_0111;
+  logic [7:0] slow_mode_data = 8'b0000_0000;
+  logic [7:0] trig_delay_data = 8'b0000_0001;
+  logic [7:0] pll_locked = 8'b0000_0001;
+  logic [7:0] read_data;
 
-  test_SPI DUT (
+  SPI DUT (
     .sclk (sclk),
     .iclk (iclk),
     .rstn (rstn),
-    .ch0 (ch0),
-    .ch1 (ch1),
-    .ch2 (ch2),
-    .ch3 (ch3),
-    .ch4 (ch4),
-    .ch5 (ch5),
-    .ch6 (ch6),
-    .ch7 (ch7),
     .serial_in (serial_in),
+    .pll_locked (pll_locked),
+    .load_cnt_ser (load_cnt_ser),
+    .select_reg (select_reg),
+    .clk_enable (clk_enable),
+    .inst_rst (inst_rst),
+    .inst_readout (inst_readout),
+    .inst_start (inst_start),
+    .trigger_channel_mask (trigger_channel_mask),
+    .mode (mode),
+    .disc_polarity (disc_polarity),
+    .vco_control (vco_control),
+    .pll_div_ratio (pll_div_ratio),
+    .slow_mode (slow_mode),
+    .trig_delay (trig_delay),
     .serial_out (serial_out)
   );
 
+  //Pulse both clocks one time
+  task pulse_iclk ();
+    @(posedge clk);
+    iclk = 1;
+    @(negedge clk);
+    iclk = 0; 
+  endtask
 
   //external reseting the chip
   task ext_reset ();
@@ -52,6 +82,8 @@ module hack_tb();
     @(posedge clk);
     @(negedge clk);
     rstn = 1;
+
+    $display("External Reset -------------------------------------------------------------------------------------------------------------------------");
   endtask
 
   //internal reset from iclk
@@ -63,149 +95,195 @@ module hack_tb();
       @(negedge clk);
       iclk = 0;
     end
+    $display("Internal Reset --------------------------------------------------------------------------------------------------------------------------");
   endtask
 
 //Task to send serial data and read from serial out
-task send_serial_data(input [7:0] data, input integer num_bytes, output [7:0] read_data);
-  for (int i = 0; i < num_bytes; i++) begin
-    for (int j = 0; j < 8; j++) begin
-      serial_in = data[j];
-      @(posedge clk); //assumes sclk becomes clk
-      sclk = 1;
-      @(negedge clk);
-      read_data[j] = serial_out;
-      sclk = 0;      
-    end
+task send_serial_data(input [7:0] data, output [7:0] read_data);
+  for (int j = 7; j >= 0; j--) begin
+    serial_in = data[j];
+    @(posedge clk); //assumes sclk becomes clk
+    sclk = 1;
+    iclk = 1;
+    @(negedge clk);
+    sclk = 0;
+    iclk = 0;
+    read_data[7-j] = serial_out;
   end
 endtask
 
-//for dbg reasons only
-always @(posedge clk) begin
-  $display("time = %0d, rstn = %b, serial_in = %b, serial_out = %b, msg_flag = %b, write_data = %b, address_pointer = %b, tcm = %b, instr = %b, mode = %b", 
-  $time, rstn, serial_in, serial_out, DUT.DUT.msg_flag, DUT.DUT.write_data, 
-  DUT.DUT.mux_control_signal, DUT.DUT.trigger_channel_mask, DUT.DUT.instruction, DUT.DUT.mode);
+//For dbg
+always @(posedge clk, negedge clk) begin
+  if (DBG_READOUT) begin
+    $display(
+      "time: %0d, sclk: %0b, iclk: %0b, rstn: %0b, serial_in: %0b, addr: %0b, load_cnt_ser: %0b, select_reg: %0b, tcm: %0b, inst: %0b, clk_enable: %0b, inst_rst: %0b,\n inst_readout: %0b, inst_start: %0b, mode: %0b, irstn: %0b, msgi: %0b, serial_out: %0b, readout: %0b, msg_flag: %0b",
+      $time, sclk, iclk, rstn, serial_in, DUT.mux_control_signal, load_cnt_ser, select_reg, trigger_channel_mask, DUT.instruction, clk_enable, 
+      inst_rst, inst_readout, inst_start, mode, DUT.sclk_stop_rstn, DUT.in.msgi, serial_out, read_data, DUT.msg_flag);
+
+    if(clk == 0) begin
+      $display("--------------------------------------------------------------------------------------------------------------------------------------------------");
+    end
+  end
 end
 
 initial begin;
-  clk = 0;
-  rstn = 1;
-  #20; //let the reset take effect?
-  ext_reset(); //setting up chip
-  
-  ch0 = 50'h2D2D2D2D2D2D3; //10 11010010 11010010 11010010 11010010 11010010 11010011
-  ch1 = 50'h331CC731CC731; //11 00110001 11001100 01110011 00011100 11000111 00110001
-  ch2 = 50'h0; //00 00000000 00000000 00000000 00000000 00000000 00000000
-  ch3 = 50'h3FFFFFFFFFFFF; //11 11111111 11111111 11111111 11111111 11111111 11111111
-  ch4 = 50'h1FC24FD9A361F; //01 11111100 00100100 11111101 10011010 00110110 00011111
-  ch5 = 50'h368B1FD2849DE; //11 01101000 10110001 11111101 00101000 01001001 11011110
-  ch6 = 50'h8A62B251A880; //00 10001010 01100010 10110010 01010001 10101000 10000000
-  ch7 = 50'hE2E112A26C51; //00 11100010 11100001 00010010 10100010 01101100 01010001
 
+  clk = 0;
   iclk = 0;
+  rstn = 1;
+  #50; //let the reset take effect
+  ext_reset(); //setting up chip
   serial_in = 0;
 
-  //Case 1: Writing to registers
-  send_serial_data(8'h01, 1, last_read_byte); //set address pointer to 1
-  //$display("time = %0d, last_read_byte = %b, control_signal = %b", $time, last_read_byte, DUT.DUT.mux_control_signal);
-  send_serial_data(tcm_data, 1, last_read_byte); //write to trigger_channel_mask
-  //$display("time = %0d, last_read_byte = %b", $time, last_read_byte);
-  send_serial_data(instruction_data, 1, last_read_byte); //write to instruction
-  //$display("time = %0d, last_read_byte = %b", $time, last_read_byte);
-  send_serial_data(mode_data, 1, last_read_byte); //write to mode
-  //$display("time = %0d, last_read_byte = %b", $time, last_read_byte);
-  int_reset(); //resets address pointer
+  //Case 1: Writing to regs 1-3
+  send_serial_data(8'b00000001, read_data); //Set addr to 1 (tcm)
+  send_serial_data(tcm_data, read_data);
+  send_serial_data(instruction_data, read_data);
+  send_serial_data(mode_data, read_data);
+  assert(trigger_channel_mask == tcm_data) $display("Writing to trigger channel mask: Passed");
+    else $error("Writing to trigger channel mask: Failed");
+  assert(DUT.instruction == instruction_data) $display("Writing to instruction: Passed");
+    else $error("Writing to instruction: Failed");
+  assert(mode == mode_data) $display("Writing to mode: Passed");
+    else $error("Writing to mode: Failed");
 
-  send_serial_data(8'h01, 1, last_read_byte); //sets address pointer to 1
-  send_serial_data(tcm_data, 1, last_read_byte); //read from trigger_channel_mask
-  //$display("time = %0d, tcm_data = %b, last_read_byte = %b", $time, tcm_data, last_read_byte);
-  assert(tcm_data == last_read_byte);
-  send_serial_data(instruction_data, 1, last_read_byte); //read from instruction
-  assert(instruction_data == last_read_byte);
-  //$display("time = %0d instruction_data assertion passed", $time);
-  send_serial_data(mode_data, 1, last_read_byte); //read from mode
-  assert(mode_data == last_read_byte);
-  //$display("time = %0d mode_data assertion passed", $time);
+  int_reset();
 
-  int_reset(); //resets address pointer
+  //Case 2: Reading from registers 4-60 sequentially
+  send_serial_data(8'b00000100, read_data); //Set addr to 4 (first read reg)
+  for (int i = 4; i <= 59; i++) begin
+    //Checking select_reg
+    assert(select_reg == (i-4)%7) $display("select_reg on reg %0d: Passed", i);
+      else $error("select_reg on reg %0d: Failed", i);
 
-  //Case 2: Reading from read only registers
-  send_serial_data(8'h04, 1, last_read_byte); //set address pointer to 4
-
-  //ch0
-  for (int i = 0; i < 41; i += 8) begin
-    send_serial_data(8'h0, 1, last_read_byte);
-    assert(last_read_byte == ch0[i +: 8]);
-    //$display("time = %0d ch0 reg %d assertion passed", $time, i/8);
+    //Checking load_cnt_ser
+    if (i <= 10) begin
+      assert(load_cnt_ser == 8'b00000001) $display("load_cnt_ser on reg %0d: Passed", i);
+        else $error("load_cnt_ser on reg %0d: Failed", i);
+    end
+    else if (i <= 17) begin
+      assert(load_cnt_ser == 8'b00000010) $display("load_cnt_ser on reg %0d: Passed", i);
+        else $error("load_cnt_ser on reg %0d: Failed", i);
+    end
+    else if (i <= 24) begin
+      assert(load_cnt_ser == 8'b00000100) $display("load_cnt_ser on reg %0d: Passed", i);
+        else $error("load_cnt_ser on reg %0d: Failed", i);
+    end
+    else if (i <= 31) begin
+      assert(load_cnt_ser == 8'b00001000) $display("load_cnt_ser on reg %0d: Passed", i);
+        else $error("load_cnt_ser on reg %0d: Failed", i);
+    end
+    else if (i <= 38) begin
+      assert(load_cnt_ser == 8'b00010000) $display("load_cnt_ser on reg %0d: Passed", i);
+        else $error("load_cnt_ser on reg %0d: Failed", i);
+    end
+    else if (i <= 45) begin
+      assert(load_cnt_ser == 8'b00100000) $display("load_cnt_ser on reg %0d: Passed", i);
+        else $error("load_cnt_ser on reg %0d: Failed", i);
+    end
+    else if (i <= 52) begin
+      assert(load_cnt_ser == 8'b01000000) $display("load_cnt_ser on reg %0d: Passed", i);
+        else $error("load_cnt_ser on reg %0d: Failed", i);
+    end
+    else if (i <= 59) begin
+      assert(load_cnt_ser == 8'b10000000) $display("load_cnt_ser on reg %0d: Passed", i);
+        else $error("load_cnt_ser on reg %0d: Failed", i);
+    end
+    send_serial_data(8'b0, read_data);
   end
-  send_serial_data(8'h0, 1, last_read_byte);
-  assert(last_read_byte == {6'b0, ch0[49:48]});
-  //$display("time = %0d ch0 reg 7 assertion passed", $time);
+  send_serial_data(8'b0, read_data);
+  assert(read_data == pll_locked) $display("reading register 60: Passed");
+    else $error("reading register 60: Failed");
 
-  //ch1
-  for (int i = 0; i < 41; i += 8) begin
-    send_serial_data(8'h0, 1, last_read_byte);
-    assert(last_read_byte == ch1[i +: 8]);
+  int_reset();
+
+  //Case 3: Writing to regs 61-65
+  send_serial_data(8'd61, read_data); //Set addr to 61
+  send_serial_data(disc_polarity_data, read_data);
+  send_serial_data(vco_control_data, read_data);
+  send_serial_data(pll_div_ratio_data, read_data);
+  send_serial_data(slow_mode_data, read_data);
+  send_serial_data(trig_delay_data, read_data);
+  assert(disc_polarity == disc_polarity_data) $display("Writing to discriminator polarity: Passed");
+    else $error("Writing to discriminator polarity: Failed");
+  assert(vco_control == vco_control_data) $display("Writing to VCO digital dand: Passed");
+    else $error("Writing to VCO digital band: Failed");
+  assert(pll_div_ratio == pll_div_ratio_data) $display("Writing to PLL division ratio: Passed");
+    else $error("Writing to PLL division ratio: Failed");
+  assert(slow_mode == slow_mode_data) $display("Writing to slow mode: Passed");
+    else $error("Writing to slow mode: Failed");
+    assert(trig_delay == trig_delay_data) $display("Writing to trigger delay: Passed");
+    else $error("Writing to trigger delay: Failed");
+
+  int_reset();
+
+  //Case 4: Reading from regs 1-3
+  send_serial_data(8'b00000001, read_data); //Set addr to 1 (tcm)
+  send_serial_data(8'b0, read_data);
+  assert(read_data == tcm_data) $display("Reading from trigger channel mask: Passed");
+    else $error("Reading from trigger channel mask: Failed");
+  send_serial_data(8'b0, read_data);
+  assert(read_data == instruction_data) $display("Reading from instruction: Passed");
+    else $error("Reading from instruction: Failed");
+  send_serial_data(8'b0, read_data);
+  assert(read_data == mode_data) $display("Reading from mode: Passed");
+    else $error("Reading from mode: Failed");
+
+  int_reset();
+
+  //Case 5: Invalid Address
+  for(int i = 60; i <= 255; i++) begin
+    send_serial_data(i, read_data); //Setting invalid address
+    assert(load_cnt_ser == 8'b0) $display("load_cnt_ser on reg %0d: Passed", i);
+      else $display("load_cnt_ser on reg %0d: Failed", i);
+    assert(select_reg == 3'b111) $display("select_reg on reg %0d: Passed", i);
+      else $error("select_reg on reg %0d: Failed", i);
+
+    int_reset();
   end
-  send_serial_data(8'h0, 1, last_read_byte);
-  assert(last_read_byte == {6'b0, ch1[49:48]});
 
-  //ch2
-  for (int i = 0; i < 41; i += 8) begin
-    send_serial_data(8'h0, 1, last_read_byte);
-    assert(last_read_byte == ch2[i +: 8]);
+  //Case 6: Testing Instruction Driver
+  send_serial_data(8'b0000_0010, read_data); //address set to instruction
+  send_serial_data(INST_RST, read_data); 
+  for(int i = 0; i < 4; i++) begin
+    pulse_iclk();
   end
-  send_serial_data(8'h0, 1, last_read_byte);
-  assert(last_read_byte == {6'b0, ch2[49:48]});
-
-  //ch3
-  for (int i = 0; i < 41; i += 8) begin
-    send_serial_data(8'h0, 1, last_read_byte);
-    assert(last_read_byte == ch3[i +: 8]);
+  assert(inst_rst == 1 && inst_readout == 0 && inst_start == 0 && clk_enable == 0) $display("Sending reset command: Passed");
+    else $display("Sending reset command: Failed");
+  for(int i = 0; i < 4; i++) begin
+    pulse_iclk();
   end
-  send_serial_data(8'h0, 1, last_read_byte);
-  assert(last_read_byte == {6'b0, ch3[49:48]});
+  assert(inst_rst == 0 && inst_readout == 0 && inst_start == 0 && clk_enable == 0) $display("Start reset finished: Passed");
+    else $display("Start reset finished: Failed");
+  int_reset();
 
-  //ch4
-  for (int i = 0; i < 41; i += 8) begin
-    send_serial_data(8'h0, 1, last_read_byte);
-    assert(last_read_byte == ch4[i +: 8]);
+  send_serial_data(8'b0000_0010, read_data); //address set to instruction
+  send_serial_data(INST_READOUT, read_data); 
+  for(int i = 0; i < 4; i++) begin
+    pulse_iclk();
   end
-  send_serial_data(8'h0, 1, last_read_byte);
-  assert(last_read_byte == {6'b0, ch4[49:48]});
-
-  //ch5
-  for (int i = 0; i < 41; i += 8) begin
-    send_serial_data(8'h0, 1, last_read_byte);
-    assert(last_read_byte == ch5[i +: 8]);
+  assert(inst_rst == 0 && inst_readout == 1 && inst_start == 0 && clk_enable == 0) $display("Sending readout command: Passed");
+    else $display("Sending readout command: Failed");
+  for(int i = 0; i < 4; i++) begin
+    pulse_iclk();
   end
-  send_serial_data(8'h0, 1, last_read_byte);
-  assert(last_read_byte == {6'b0, ch5[49:48]});
+  assert(inst_rst == 0 && inst_readout == 0 && inst_start == 0 && clk_enable == 0) $display("Start readout finished: Passed");
+    else $display("Start readout finished: Failed");
+  int_reset();
 
-  //ch6
-  for (int i = 0; i < 41; i += 8) begin
-    send_serial_data(8'h0, 1, last_read_byte);
-    assert(last_read_byte == ch6[i +: 8]);
+  send_serial_data(8'b0000_0010, read_data); //address set to instruction
+  send_serial_data(INST_START, read_data); 
+  for(int i = 0; i < 4; i++) begin
+    pulse_iclk();
   end
-  send_serial_data(8'h0, 1, last_read_byte);
-  assert(last_read_byte == {6'b0, ch6[49:48]});
-
-  //ch7
-  for (int i = 0; i < 41; i += 8) begin
-    send_serial_data(8'h0, 1, last_read_byte);
-    assert(last_read_byte == ch7[i +: 8]);
+  assert(inst_rst == 0 && inst_readout == 0 && inst_start == 1 && clk_enable == 1) $display("Sending start command: Passed");
+    else $display("Sending start command: Failed");
+  for(int i = 0; i < 4; i++) begin
+    pulse_iclk();
   end
-  send_serial_data(8'h0, 1, last_read_byte);
-  assert(last_read_byte == {6'b0, ch7[49:48]});
-
-  int_reset(); //resets address pointer
-
-  //Case 3: Invalid address
-  for (bit [7:0] i = 8'd60; i != '0; i++) begin
-    send_serial_data(i, 1, last_read_byte); //sets address pointer to i (invalid)
-    send_serial_data(8'h0, 1, last_read_byte); //reads out what is there
-    assert(last_read_byte == 8'bX); //read should be garbage
-    int_reset(); //clears address pointer
-  end
+  assert(inst_rst == 0 && inst_readout == 0 && inst_start == 0 && clk_enable == 1) $display("Start command finished: Passed");
+    else $display("Start command finished: Failed");
+  int_reset();
 
   $finish;
 end

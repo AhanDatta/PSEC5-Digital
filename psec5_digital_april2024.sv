@@ -252,7 +252,7 @@ module PSEC5_Single_Channel_Digital_Block (
             CNT_SER <= 0;
         end
         else begin //Default behavior when SPI_CLK is high
-          cbuffer <= {1'b0, cbuffer[7:1]};
+            cbuffer <= {1'b0, cbuffer[7:1]};
             CNT_SER <= cbuffer[0];
         end
     end
