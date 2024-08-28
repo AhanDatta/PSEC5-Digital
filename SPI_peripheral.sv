@@ -69,8 +69,7 @@ module SPI (
         .instruction(instruction), 
         .mux_control_signal (mux_control_signal), 
         .iclk (iclk), 
-        .sclk (sclk),
-        .msg_flag (msg_flag),
+        .sclk_stop_rstn (sclk_stop_rstn),
         .clk_enable (clk_enable),
         .inst_rst (inst_rst),
         .inst_readout (inst_readout),
@@ -322,16 +321,16 @@ endmodule
 
 module inst_driver (
     input logic rstn, //external
+    input logic sclk_stop_rstn,
     input logic [7:0] instruction,
     input logic [7:0] mux_control_signal,
-    input logic sclk,
-    input logic iclk,
-    input logic msg_flag,
+    input logic iclk, 
     output logic clk_enable, 
     output logic inst_rst,
     output logic inst_readout,
     output logic inst_start
 );
+
     always_comb begin
         if (!rstn) begin
             clk_enable = 0;
@@ -344,107 +343,57 @@ module inst_driver (
         end
     end
 
-    logic [15:0] addr_prev;
-    logic msg_flag_prev;
-    always_ff @(posedge sclk or negedge rstn) begin
-        if(!rstn) begin
-            addr_prev <= 16'b0;
-            msg_flag_prev <= 0;
-        end
-        else begin
-            addr_prev <= {addr_prev[7:0], mux_control_signal};
-            msg_flag_prev <= msg_flag;
-        end
-    end
-
-    logic combined_msg_flag;
-    assign combined_msg_flag = msg_flag || msg_flag_prev;
-
-    pulse_synchronizer rst_synch (
-        .sclk (sclk),
-        .spulse(combined_msg_flag && (addr_prev[7:0] == 8'b10 || addr_prev[15:8] == 8'b10) && instruction == 8'd1),
-        .rstn (rstn),
-        .iclk (iclk),
-        .ipulse(inst_rst)
-    );
-
-    pulse_synchronizer readout_synch (
-        .sclk (sclk),
-        .spulse(combined_msg_flag && (addr_prev[7:0] == 8'b10 || addr_prev[15:8] == 8'b10) && instruction == 8'd2),
-        .rstn (rstn),
-        .iclk (iclk),
-        .ipulse(inst_readout)
-    );
-
-    pulse_synchronizer start_synch (
-        .sclk (sclk),
-        .spulse(combined_msg_flag && (addr_prev[7:0] == 8'b10 || addr_prev[15:8] == 8'b10) && instruction == 8'd3),
-        .rstn (rstn),
-        .iclk (iclk),
-        .ipulse(inst_start)
-    );
-
-endmodule
-
-module pulse_synchronizer (
-  input  logic sclk,
-  input  logic spulse,
-  input  logic rstn,
-  input  logic iclk,
-  output logic ipulse
-);
-
-  logic src_pulse_1;
-  logic src_pulse_2;
-  
-  logic dest_pulse_1;
-  logic dest_pulse_2;
-
-  // src clock domain edge detection
-  always_ff @(posedge sclk or negedge rstn) begin
-    if (!rstn) begin
-      src_pulse_1 <= 1'b0;
-      src_pulse_2 <= 1'b0;
-    end else begin
-      src_pulse_1 <= spulse; //tracks src_pulse 1 src_clk cycle behind
-      src_pulse_2 <= (spulse & ~src_pulse_1) ^ src_pulse_2; //detects rising edge and holds
-    end
-  end
-
-  sync_bits sync_Bits_to_iclk (
-    .clk(iclk),
-    .rstn(rstn),
-    .in(src_pulse_2),
-    .out(dest_pulse_1)
-  );
-
-  always_ff @(posedge iclk or negedge rstn) begin
-    if (!rstn) begin
-      dest_pulse_2 <= 0;
-      ipulse   <= 1'b0;
-    end else begin
-      dest_pulse_2 <= dest_pulse_1;
-      ipulse <= dest_pulse_1 ^ dest_pulse_2;
-    end
-  end
-
-endmodule
-
-module sync_bits #(parameter SYNC_STAGES = 2) (
-    input logic clk,
-    input logic rstn,
-    input logic in,
-    output logic out
-);
-    logic [SYNC_STAGES-1:0] sync_regs;
-    always_ff @(posedge clk or negedge rstn) begin
+    logic [7:0] prev_addr; //tracks the address 1 iclk cycle back
+    always_ff @(posedge iclk or negedge rstn) begin
         if (!rstn) begin
-            sync_regs <= {SYNC_STAGES{1'b0}};
-            out <= 1'b0;
+            prev_addr <= 8'b0;
         end
         else begin
-            sync_regs <= {sync_regs[SYNC_STAGES-2:0], in};
-            out <= sync_regs[SYNC_STAGES-1];
+            prev_addr <= mux_control_signal;
         end
+    end
+
+    always_comb begin
+        if (!rstn) begin 
+            inst_rst = 0;
+            inst_readout = 0;
+            inst_start = 0;
+        end
+        else begin
+            if (sclk_stop_rstn) begin 
+                inst_rst = 0;
+                inst_readout = 0;
+                inst_start = 0;
+            end
+            else begin //if internal reset being sent
+                if (prev_addr == 8'b0000_0011) begin //the last address value was (instruction+1), minding the auto increment
+                    if (instruction == 8'b0000_0001) begin //instruction on reset
+                        inst_rst = 1;
+                        inst_readout = 0;
+                        inst_start = 0;
+                    end
+                    else if (instruction == 8'b0000_0010) begin //instruction on readout
+                        inst_rst = 0;
+                        inst_readout = 1;
+                        inst_start = 0;
+                    end
+                    else if (instruction == 8'b0000_0011) begin //instruction on start
+                        inst_rst = 0;
+                        inst_readout = 0;
+                        inst_start = 1;
+                    end
+                    else begin //invalid instruction
+                        inst_rst = 0;
+                        inst_readout = 0;
+                        inst_start = 0;
+                    end
+                end
+                else begin 
+                    inst_rst = 0;
+                    inst_readout = 0;
+                    inst_start = 0;
+                end
+            end
+        end 
     end
 endmodule
