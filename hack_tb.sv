@@ -245,45 +245,37 @@ initial begin;
   //Case 6: Testing Instruction Driver
   send_serial_data(8'b0000_0010, read_data); //address set to instruction
   send_serial_data(INST_RST, read_data); 
-  for(int i = 0; i < 4; i++) begin
+  for(int i = 0; i < 7; i++) begin
     pulse_iclk();
   end
   assert(inst_rst == 1 && inst_readout == 0 && inst_start == 0 && clk_enable == 0) $display("Sending reset command: Passed");
     else $display("Sending reset command: Failed");
-  for(int i = 0; i < 4; i++) begin
-    pulse_iclk();
-  end
+  pulse_iclk();
   assert(inst_rst == 0 && inst_readout == 0 && inst_start == 0 && clk_enable == 0) $display("Start reset finished: Passed");
     else $display("Start reset finished: Failed");
-  int_reset();
 
   send_serial_data(8'b0000_0010, read_data); //address set to instruction
   send_serial_data(INST_READOUT, read_data); 
-  for(int i = 0; i < 4; i++) begin
+  for(int i = 0; i < 7; i++) begin
     pulse_iclk();
   end
   assert(inst_rst == 0 && inst_readout == 1 && inst_start == 0 && clk_enable == 0) $display("Sending readout command: Passed");
     else $display("Sending readout command: Failed");
-  for(int i = 0; i < 4; i++) begin
-    pulse_iclk();
-  end
+  pulse_iclk();
   assert(inst_rst == 0 && inst_readout == 0 && inst_start == 0 && clk_enable == 0) $display("Start readout finished: Passed");
     else $display("Start readout finished: Failed");
-  int_reset();
 
   send_serial_data(8'b0000_0010, read_data); //address set to instruction
   send_serial_data(INST_START, read_data); 
-  for(int i = 0; i < 4; i++) begin
+  for(int i = 0; i < 7; i++) begin
     pulse_iclk();
   end
   assert(inst_rst == 0 && inst_readout == 0 && inst_start == 1 && clk_enable == 1) $display("Sending start command: Passed");
     else $display("Sending start command: Failed");
-  for(int i = 0; i < 4; i++) begin
-    pulse_iclk();
-  end
+  pulse_iclk();
+
   assert(inst_rst == 0 && inst_readout == 0 && inst_start == 0 && clk_enable == 1) $display("Start command finished: Passed");
     else $display("Start command finished: Failed");
-  int_reset();
 
   $finish;
 end
