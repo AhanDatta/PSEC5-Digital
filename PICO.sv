@@ -94,15 +94,19 @@ endmodule
 //Needs to have a reset come in to initialize values
 module read_write (
 input logic [7:0] msg, //message from the s2p_module
-input logic rstn, //set every value to zero
+input logic rstn, //external
+input logic sclk_stop_rstn, //internal
 input logic msg_flag, //flags when the msg from buffer reg changes
 output logic [7:0] write_data, //the data that is output to be written
 output logic [7:0] address_pointer //controls the mux which regulates reads out the chosen digital reg
 );
     //Logic for addressing registers and writing
-    always_ff @(posedge msg_flag or negedge rstn) begin 
+    always_ff @(posedge msg_flag or negedge rstn or negedge sclk_stop_rstn) begin 
         if (!rstn) begin
-            //write_data <= '0; Don't want this because want to maintain data in w/r regs after transaction
+            write_data <= 8'b0; 
+            address_pointer <= 8'b0;
+        end
+        else if (!sclk_stop_rstn) begin
             address_pointer <= 8'b0;
         end
         else begin
@@ -129,9 +133,6 @@ output logic [7:0] write_data, //Output data to write
 output logic [7:0] mux_control_signal //Output control signal for POCI mux
 ); 
     logic [7:0] msgi; //internal message from s2p -> read_write
-    logic full_rstn;
-
-    assign full_rstn = rstn & sclk_stop_rstn; //Combines the reset signal from the clock comparator and external reset   
         
     s2p_module serial_to_eight_bit (
         .serial_in (serial_in),
@@ -145,7 +146,8 @@ output logic [7:0] mux_control_signal //Output control signal for POCI mux
 
     read_write eight_bit_to_output (
         .msg (msgi),
-        .rstn (full_rstn),
+        .rstn (rstn),
+        .sclk_stop_rstn (sclk_stop_rstn),
         .msg_flag (msg_flag),
         .write_data (write_data),
         .address_pointer (mux_control_signal)

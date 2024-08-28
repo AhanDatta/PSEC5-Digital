@@ -36,7 +36,9 @@ module SPI (
     //Data from PICO to registers and POCI
     logic [7:0] write_data;
     logic [7:0] mux_control_signal;
-    logic [7:0] input_mux_latch_sgnl; //Uses mux_control_signal to select reg to write to
+    logic [7:0] input_mux_latch_sgnl_raw; 
+    logic [7:0] input_mux_latch_sgnl;
+    assign input_mux_latch_sgnl = input_mux_latch_sgnl_raw & {8{msg_flag}}; //Uses mux_control_signal to select reg to write to
     
     //Gets the input into a usable form
     PICO in (
@@ -61,7 +63,7 @@ module SPI (
     latched_write_reg slow_mode_reg(.rstn (rstn), .data(write_data), .latch_en (input_mux_latch_sgnl[6]), .stored_data (slow_mode));
     latched_write_reg trig_delay_reg(.rstn (rstn), .data(write_data), .latch_en (input_mux_latch_sgnl[7]), .stored_data (trig_delay));
 
-    input_mux write_mux (.rstn (full_rstn), .sclk (sclk), .addr (mux_control_signal), .latch_signal (input_mux_latch_sgnl));
+    input_mux write_mux (.rstn (full_rstn), .sclk (sclk), .addr (mux_control_signal), .latch_signal (input_mux_latch_sgnl_raw));
 
     //logic to drive pins related to instruction
     inst_driver instruction_driver (
@@ -98,6 +100,22 @@ module SPI (
     convert_addr addr_out (.rstn (full_rstn), .mux_control_signal (mux_control_signal), .load_cnt_ser (load_cnt_ser), .select_reg (select_reg));
 endmodule
 
+module prev_ff_8 (
+    input logic [7:0] sig,
+    input logic rstn,
+    input logic clk,
+    output logic [7:0]prev
+);
+    always_ff @(posedge clk or negedge rstn) begin
+        if(!rstn) begin
+            prev <= '0;
+        end
+        else begin
+            prev <= sig;
+        end
+    end
+endmodule
+
 //Special registers 1-3 for trigger_ch_mask, instruction, mode
 //also to hold data for serial_out
 module latched_write_reg (
@@ -125,12 +143,15 @@ module input_mux (
     input logic sclk, 
     output logic [7:0] latch_signal //carries the latch signal to the correct reg based on address
 );
+    logic [7:0] addr_prev;
+    prev_ff_8 prev_addr_tracker (.rstn (rstn), .sig (addr), .clk (sclk), .prev (addr_prev));
+
     always_ff @(posedge sclk or negedge rstn) begin
         if (!rstn) begin
             latch_signal <= '0;
         end
         else begin
-            unique case (addr)
+            unique case (addr_prev)
                 8'd1: latch_signal <= 8'b0000_0001;
                 8'd2: latch_signal <= 8'b0000_0010;
                 8'd3: latch_signal <= 8'b0000_0100;
@@ -344,14 +365,7 @@ module inst_driver (
     end
 
     logic [7:0] prev_addr; //tracks the address 1 iclk cycle back
-    always_ff @(posedge iclk or negedge rstn) begin
-        if (!rstn) begin
-            prev_addr <= 8'b0;
-        end
-        else begin
-            prev_addr <= mux_control_signal;
-        end
-    end
+    prev_ff_8 prev_addr_tracker (.rstn (rstn), .sig (mux_control_signal), .clk (iclk), .prev (prev_addr));
 
     always_comb begin
         if (!rstn) begin 
