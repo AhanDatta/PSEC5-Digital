@@ -13,6 +13,7 @@ module SPI (
     output logic inst_readout, //instr == 2
     output logic inst_start, //instr == 3
     output logic [7:0] load_cnt_ser,
+    output logic [7:0] mux_control_signal,
     output logic [2:0] select_reg,
     output logic [7:0] trigger_channel_mask, //address 1
     output logic [7:0] mode, //address 3 
@@ -35,7 +36,6 @@ module SPI (
 
     //Data from PICO to registers and POCI
     logic [7:0] write_data;
-    logic [7:0] mux_control_signal;
     logic [7:0] input_mux_latch_sgnl_raw; 
     logic [7:0] input_mux_latch_sgnl;
     assign input_mux_latch_sgnl = input_mux_latch_sgnl_raw & {8{msg_flag}}; //Uses mux_control_signal to select reg to write to
