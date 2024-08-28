@@ -97,9 +97,23 @@ module SPI (
     );
 
     //Output for the readout of regs 4-59
-    convert_addr addr_out (.rstn (full_rstn), .mux_control_signal (mux_control_signal), .load_cnt_ser (load_cnt_ser), .select_reg (select_reg));
+    choose_select_reg select_reg_out (
+        .rstn (full_rstn), 
+        .mux_control_signal (mux_control_signal), 
+        .select_reg (select_reg)
+    );
+
+    logic [7:0] load_cnt_ser_wide; 
+    load_cnt_ser_posedge load_cnt_ser_1 (
+        .rstn (rstn),
+        .sclk (sclk),
+        .mux_control_signal (mux_control_signal),
+        .load_cnt_ser (load_cnt_ser_wide)
+    );
+    assign load_cnt_ser = load_cnt_ser_wide & {8{sclk}};
 endmodule
 
+//Regular 8bit ff
 module prev_ff_8 (
     input logic [7:0] sig,
     input logic rstn,
@@ -166,51 +180,70 @@ module input_mux (
     end
 endmodule
 
-//Converts mux_control_signal into correct load_cnt_ser flag for analog reg
-//Also sets select_reg to read the correct byte from the chosen analog reg
-module convert_addr (
+module load_cnt_ser_posedge (
     input logic rstn,
+    input logic sclk,
     input logic [7:0] mux_control_signal,
     output logic [7:0] load_cnt_ser,
+);
+    logic [7:0] prev_addr;
+    prev_ff_8 prev_addr_tracker (.rstn (rstn), .sig(mux_control_signal), .clk(sclk), .prev (prev_addr));
+    always_comb begin
+        if (!rstn) begin
+            load_cnt_ser = 8'b0;
+        end
+        else begin
+            if (prev_addr != mux_control_signal) begin //when address changes
+                if (mux_control_signal <= 3) begin //address sent to W reg
+                    load_cnt_ser = 8'b0;
+                end
+                else if (mux_control_signal <= 10) begin
+                    load_cnt_ser = 8'b00000001;
+                end
+                else if (mux_control_signal <= 17) begin
+                    load_cnt_ser = 8'b00000010;
+                end
+                else if (mux_control_signal <= 24) begin
+                    load_cnt_ser = 8'b00000100;
+                end
+                else if (mux_control_signal <= 31) begin
+                    load_cnt_ser = 8'b00001000;
+                end
+                else if (mux_control_signal <= 38) begin
+                    load_cnt_ser = 8'b00010000;
+                end
+                else if (mux_control_signal <= 45) begin
+                    load_cnt_ser = 8'b00100000;
+                end
+                else if (mux_control_signal <= 52) begin
+                    load_cnt_ser = 8'b01000000;
+                end
+                else if (mux_control_signal <= 59) begin
+                    load_cnt_ser = 8'b10000000;
+                end
+                else begin //invalid address case
+                    load_cnt_ser = 8'b0;
+                end
+            end
+            else begin //no change in addr
+                load_cnt_ser = 8'b0;
+            end
+        end
+    end
+endmodule
+
+//Converts mux_control_signal into correct load_cnt_ser flag for analog reg
+//Also sets select_reg to read the correct byte from the chosen analog reg
+module choose_select_reg (
+    input logic rstn,
+    input logic [7:0] mux_control_signal,
     output logic [2:0] select_reg
 );
     always_comb begin
         if (!rstn) begin
-            load_cnt_ser = 8'b0;
             select_reg = 3'b111;
         end
         else begin
-            //Setting load_cnt_ser flag with LUT
-            if (mux_control_signal <= 3) begin //address sent to W reg
-                load_cnt_ser = 8'b0;
-            end
-            else if (mux_control_signal <= 10) begin
-                load_cnt_ser = 8'b00000001;
-            end
-            else if (mux_control_signal <= 17) begin
-                load_cnt_ser = 8'b00000010;
-            end
-            else if (mux_control_signal <= 24) begin
-                load_cnt_ser = 8'b00000100;
-            end
-            else if (mux_control_signal <= 31) begin
-                load_cnt_ser = 8'b00001000;
-            end
-            else if (mux_control_signal <= 38) begin
-                load_cnt_ser = 8'b00010000;
-            end
-            else if (mux_control_signal <= 45) begin
-                load_cnt_ser = 8'b00100000;
-            end
-            else if (mux_control_signal <= 52) begin
-                load_cnt_ser = 8'b01000000;
-            end
-            else if (mux_control_signal <= 59) begin
-                load_cnt_ser = 8'b10000000;
-            end
-            else begin //invalid address case
-                load_cnt_ser = 8'b0;
-            end
 
             //Sets select_reg with LUT
             //Uses formula select_reg = (mux_control_signal - 4) % 7
