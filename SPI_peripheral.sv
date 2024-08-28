@@ -184,7 +184,7 @@ module load_cnt_ser_posedge (
     input logic rstn,
     input logic sclk,
     input logic [7:0] mux_control_signal,
-    output logic [7:0] load_cnt_ser,
+    output logic [7:0] load_cnt_ser
 );
     logic [7:0] prev_addr;
     prev_ff_8 prev_addr_tracker (.rstn (rstn), .sig(mux_control_signal), .clk(sclk), .prev (prev_addr));
