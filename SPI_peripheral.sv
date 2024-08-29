@@ -110,7 +110,7 @@ module SPI (
         .mux_control_signal (mux_control_signal),
         .load_cnt_ser (load_cnt_ser_wide)
     );
-    assign load_cnt_ser = load_cnt_ser_wide & {8{sclk}};
+    assign load_cnt_ser = load_cnt_ser_wide & {8{~sclk}};
 endmodule
 
 //Regular 8bit ff
@@ -364,11 +364,11 @@ module W_R_reg_readout (
 	always_ff @(posedge sclk or negedge rstn) begin
 		if (!rstn) begin
 			serial_out <= 0;
-			index_pointer <= 3'b0;
+			index_pointer <= 3'b111;
 		end
 		else begin
 			serial_out <= held_data[index_pointer];
-			index_pointer <= index_pointer + 1;
+			index_pointer <= index_pointer - 1;
 		end
 	end
 endmodule
