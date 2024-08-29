@@ -23,7 +23,7 @@
 //Testbench to verify SPI block's new design with MUX included
 module SpiMuxTB();
 
-parameter MSG_SIZE = 1; //Determins how many bytes serial in will be
+parameter MSG_SIZE = 2; //Determins how many bytes serial in will be
 
 
 
@@ -50,6 +50,7 @@ wire [7:0] pll_div_ratio;
 wire [7:0] slow_mode;
 wire [7:0] trig_delay;
 wire serial_out;
+wire [7:0] mux_control_signal;
 
 //Inputs into Jins code
 
@@ -102,7 +103,9 @@ integer counter;
 integer serial_in_counter;
 reg onoff_serial_in;
 reg[MSG_SIZE*8:0] total_msg;
+reg sclk_onoff;
 
+logic [7:0] readoutxx;
 
 
 
@@ -133,7 +136,8 @@ SPI spi(
 .pll_div_ratio(pll_div_ratio),
 .slow_mode(slow_mode),
 .trig_delay(trig_delay),
-.serial_out(serial_out) 
+.serial_out(serial_out),
+.mux_control_signal(mux_control_signal)
 );
 
 
@@ -152,9 +156,9 @@ SPI spi(
 PSEC5_CH_DIGITAL thingy0(
 //inputs
 
-.INST_START(INST_START),
+.INST_START(inst_start),
 .INST_STOP(INST_STOP),
-.INST_READOUT(INST_READOUT),
+.INST_READOUT(inst_readout),
 .RSTB(RSTB),
 .DISCRIMINATOR_OUTPUT(DISCRIMINATOR_OUTPUT),
 .DISCRIMINATOR_POLARITY(disc_polarity[0]), //Connected to spi, 1 bit per channel
@@ -166,8 +170,8 @@ PSEC5_CH_DIGITAL thingy0(
 .CE(CE0),
 .FCLK(FCLK),
 .MODE(mode[1:0]),
-.SELECT_REG(SELECT_REG), 
-.LOAD_CNT_SER(load_cnt_ser[0]), //Specific per channel, from spi
+.SELECT_REG(select_reg), 
+//.LOAD_CNT_SER(load_cnt_ser[0]), //Specific per channel, from spi
 .TRIG_DELAY(TRIG_DELAY),
 
 //outputs
@@ -192,9 +196,9 @@ PSEC5_CH_DIGITAL thingy0(
 PSEC5_CH_DIGITAL thingy1(
 //inputs
 
-.INST_START(INST_START),
+.INST_START(inst_start),
 .INST_STOP(INST_STOP),
-.INST_READOUT(INST_READOUT),
+.INST_READOUT(inst_readout),
 .RSTB(RSTB),
 .DISCRIMINATOR_OUTPUT(DISCRIMINATOR_OUTPUT),
 .DISCRIMINATOR_POLARITY(disc_polarity[1]), //Connected to spi, 1 bit per channel
@@ -206,8 +210,8 @@ PSEC5_CH_DIGITAL thingy1(
 .CE(CE1),
 .FCLK(FCLK),
 .MODE(mode[1:0]),
-.SELECT_REG(SELECT_REG), 
-.LOAD_CNT_SER(load_cnt_ser[1]), //Specific per channel, from spi
+.SELECT_REG(select_reg), 
+//.LOAD_CNT_SER(load_cnt_ser[1]), //Specific per channel, from spi
 .TRIG_DELAY(TRIG_DELAY),
 
 //outputs
@@ -232,9 +236,9 @@ PSEC5_CH_DIGITAL thingy1(
 PSEC5_CH_DIGITAL thingy2(
 //inputs
 
-.INST_START(INST_START),
+.INST_START(inst_start),
 .INST_STOP(INST_STOP),
-.INST_READOUT(INST_READOUT),
+.INST_READOUT(inst_readout),
 .RSTB(RSTB),
 .DISCRIMINATOR_OUTPUT(DISCRIMINATOR_OUTPUT),
 .DISCRIMINATOR_POLARITY(disc_polarity[2]), //Connected to spi, 1 bit per channel
@@ -246,8 +250,8 @@ PSEC5_CH_DIGITAL thingy2(
 .CE(CE2),
 .FCLK(FCLK),
 .MODE(mode[1:0]),
-.SELECT_REG(SELECT_REG), 
-.LOAD_CNT_SER(load_cnt_ser[2]), //Specific per channel, from spi
+.SELECT_REG(select_reg), 
+//.LOAD_CNT_SER(load_cnt_ser[2]), //Specific per channel, from spi
 .TRIG_DELAY(TRIG_DELAY),
 
 //outputs
@@ -272,9 +276,9 @@ PSEC5_CH_DIGITAL thingy2(
 PSEC5_CH_DIGITAL thingy3(
 //inputs
 
-.INST_START(INST_START),
+.INST_START(inst_start),
 .INST_STOP(INST_STOP),
-.INST_READOUT(INST_READOUT),
+.INST_READOUT(inst_readout),
 .RSTB(RSTB),
 .DISCRIMINATOR_OUTPUT(DISCRIMINATOR_OUTPUT),
 .DISCRIMINATOR_POLARITY(disc_polarity[3]), //Connected to spi, 1 bit per channel
@@ -286,8 +290,8 @@ PSEC5_CH_DIGITAL thingy3(
 .CE(CE3),
 .FCLK(FCLK),
 .MODE(mode[1:0]),
-.SELECT_REG(SELECT_REG), 
-.LOAD_CNT_SER(load_cnt_ser[3]), //Specific per channel, from spi
+.SELECT_REG(select_reg), 
+//.LOAD_CNT_SER(load_cnt_ser[3]), //Specific per channel, from spi
 .TRIG_DELAY(TRIG_DELAY),
 
 //outputs
@@ -312,9 +316,9 @@ PSEC5_CH_DIGITAL thingy3(
 PSEC5_CH_DIGITAL thingy4(
 //inputs
 
-.INST_START(INST_START),
+.INST_START(inst_start),
 .INST_STOP(INST_STOP),
-.INST_READOUT(INST_READOUT),
+.INST_READOUT(inst_readout),
 .RSTB(RSTB),
 .DISCRIMINATOR_OUTPUT(DISCRIMINATOR_OUTPUT),
 .DISCRIMINATOR_POLARITY(disc_polarity[4]), //Connected to spi, 1 bit per channel
@@ -326,8 +330,8 @@ PSEC5_CH_DIGITAL thingy4(
 .CE(CE4),
 .FCLK(FCLK),
 .MODE(mode[1:0]),
-.SELECT_REG(SELECT_REG), 
-.LOAD_CNT_SER(load_cnt_ser[4]), //Specific per channel, from spi
+.SELECT_REG(select_reg), 
+//.LOAD_CNT_SER(load_cnt_ser[4]), //Specific per channel, from spi
 .TRIG_DELAY(TRIG_DELAY),
 
 //outputs
@@ -352,9 +356,9 @@ PSEC5_CH_DIGITAL thingy4(
 PSEC5_CH_DIGITAL thingy5(
 //inputs
 
-.INST_START(INST_START),
+.INST_START(inst_start),
 .INST_STOP(INST_STOP),
-.INST_READOUT(INST_READOUT),
+.INST_READOUT(inst_readout),
 .RSTB(RSTB),
 .DISCRIMINATOR_OUTPUT(DISCRIMINATOR_OUTPUT),
 .DISCRIMINATOR_POLARITY(disc_polarity[5]), //Connected to spi, 1 bit per channel
@@ -366,8 +370,8 @@ PSEC5_CH_DIGITAL thingy5(
 .CE(CE5),
 .FCLK(FCLK),
 .MODE(mode[1:0]),
-.SELECT_REG(SELECT_REG), 
-.LOAD_CNT_SER(load_cnt_ser[5]), //Specific per channel, from spi
+.SELECT_REG(select_reg), 
+//.LOAD_CNT_SER(load_cnt_ser[5]), //Specific per channel, from spi
 .TRIG_DELAY(TRIG_DELAY),
 
 //outputs
@@ -392,9 +396,9 @@ PSEC5_CH_DIGITAL thingy5(
 PSEC5_CH_DIGITAL thingy6(
 //inputs
 
-.INST_START(INST_START),
+.INST_START(inst_start),
 .INST_STOP(INST_STOP),
-.INST_READOUT(INST_READOUT),
+.INST_READOUT(inst_readout),
 .RSTB(RSTB),
 .DISCRIMINATOR_OUTPUT(DISCRIMINATOR_OUTPUT),
 .DISCRIMINATOR_POLARITY(disc_polarity[6]), //Connected to spi, 1 bit per channel
@@ -406,8 +410,8 @@ PSEC5_CH_DIGITAL thingy6(
 .CE(CE6),
 .FCLK(FCLK),
 .MODE(mode[1:0]),
-.SELECT_REG(SELECT_REG), 
-.LOAD_CNT_SER(load_cnt_ser[6]), //Specific per channel, from spi
+.SELECT_REG(select_reg), 
+//.LOAD_CNT_SER(load_cnt_ser[6]), //Specific per channel, from spi
 .TRIG_DELAY(TRIG_DELAY),
 
 //outputs
@@ -431,9 +435,9 @@ PSEC5_CH_DIGITAL thingy6(
 PSEC5_CH_DIGITAL thingy7(
 //inputs
 
-.INST_START(INST_START),
+.INST_START(inst_start),
 .INST_STOP(INST_STOP),
-.INST_READOUT(INST_READOUT),
+.INST_READOUT(inst_readout),
 .RSTB(RSTB),
 .DISCRIMINATOR_OUTPUT(DISCRIMINATOR_OUTPUT),
 .DISCRIMINATOR_POLARITY(disc_polarity[7]), //Connected to spi, 1 bit per channel
@@ -445,8 +449,8 @@ PSEC5_CH_DIGITAL thingy7(
 .CE(CE7),
 .FCLK(FCLK),
 .MODE(mode[1:0]),
-.SELECT_REG(SELECT_REG), 
-.LOAD_CNT_SER(load_cnt_ser[7]), //Specific per channel, from spi
+.SELECT_REG(select_reg), 
+//.LOAD_CNT_SER(load_cnt_ser[7]), //Specific per channel, from spi
 .TRIG_DELAY(TRIG_DELAY),
 
 //outputs
@@ -470,9 +474,10 @@ serial_out_mux doodad(
 
 //inputs
 .sclk(sclk),
-.raw_serial_out({CNT_SER0, CNT_SER1, CNT_SER2, CNT_SER3, CNT_SER4, CNT_SER5, CNT_SER6, CNT_SER7}),
+.raw_serial_out({CNT_SER7, CNT_SER6, CNT_SER5, CNT_SER4, CNT_SER3, CNT_SER2, CNT_SER1, CNT_SER0}),
 .wr_serial_out(serial_out),
-.load_cnt_ser(load_cnt_ser),
+.mux_control_signal(mux_control_signal),
+.rstn(rstn),
 
 //outputs
 .serial_out(serial_out_mux)
@@ -480,16 +485,34 @@ serial_out_mux doodad(
 );
 
 
-
+task send_serial_data(input [7:0] data, output [7:0] read_data);
+  for (int j = 7; j >= 0; j--) begin
+    serial_in = data[j];
+    @(posedge iclk); //assumes sclk becomes clk
+    sclk = 1;
+    @(negedge iclk);
+    sclk = 0;
+    read_data[7-j] = serial_out;
+  end
+endtask
 
 
 
 //Start adding values!!!
 
-//SPI Clock (25ns)
-always begin
-    #25 sclk = ~sclk;
-end
+////SPI Clock (25ns)
+//always begin
+    
+//    #25
+    
+//    if(sclk_onoff) begin
+
+//        sclk = ~sclk;
+    
+//    end 
+    
+    
+//end
 
 always begin
     #25 iclk = ~iclk;
@@ -507,25 +530,25 @@ always begin
 end
 
 
-always @(posedge sclk) begin
+//always @(posedge sclk) begin
 
-    if (onoff_serial_in > 0) begin
-            if (serial_in_counter < 8*MSG_SIZE) begin
+//    if (onoff_serial_in > 0) begin
+//            if (serial_in_counter < 8*MSG_SIZE) begin
     
-                serial_in = total_msg[serial_in_counter];
-                serial_in_counter <= serial_in_counter + 1;
-            end
+//                serial_in = total_msg[serial_in_counter];
+//                serial_in_counter <= serial_in_counter + 1;
+//            end
             
-            else begin
+//            else begin
             
-            onoff_serial_in <= 1'b0;
-            #5
-            serial_in_counter = 0;
-            end
+//            onoff_serial_in <= 1'b0;
+//            #5
+//            serial_in_counter = 0;
+//            end
             
-    end
+//    end
 
-end
+//end
 
 
         always begin // Timed delay of DISCRIMINATOR_OUTPUT, after 25ns it flips every 2ns from there on
@@ -543,12 +566,17 @@ initial begin
 counter <= 0;
 serial_in_counter <= 0;
 onoff_serial_in <= 1'b0;
+sclk_onoff <= 1'b0;
 
 
 //Initializing Clocks
 sclk <= 1'b0;
 iclk <= 1'b0;
 FCLK <= 1'b0;
+
+
+
+
 
 #25
 
@@ -566,13 +594,15 @@ RSTB <= 1'b1;
 
 
 
+
+
 //Initializing Channel Values, CA-CE
 
-CA0 <= 10'b0000000000;
-CB0 <= 10'b0000000001;
-CC0 <= 10'b0000000010;
-CD0 <= 10'b0000000100;
-CE0 <= 10'b0000001000;
+CA0 <= 10'b0000000011;
+CB0 <= 10'b0011111111;
+CC0 <= 10'b1111000000;
+CD0 <= 10'b0000001111;
+CE0 <= 10'b1111111100;
 
 CA1 <= 10'b0000010000;
 CB1 <= 10'b0000100000;
@@ -618,11 +648,10 @@ CE7 <= 10'b0101010100;
 
 //Remaining Input Initialization for SPI_Peripheral
 pll_locked <= 8'b00000000;
-total_msg <= 8'b01010000;
 
 //Initializing Remaining Inptus for psec5_digital_august2024
 INST_STOP <= 1'b0; //Initializing values of variables in the block
-INST_READOUT <= 1'b0; 
+//INST_READOUT <= 1'b0; 
 //MODE <= 2'b00;
 TRIG_DELAY <= 4'b0010;
 DISCRIMINATOR_OUTPUT <= 1'b0;
@@ -636,8 +665,109 @@ wr_serial_out <= 1'b0;
 #10
 
 //Inputting serial_in values
-onoff_serial_in <= 1'b1;
 
-end
+//Writing to register 1
+send_serial_data(8'b00000001, readoutxx);
+send_serial_data(8'b00000011, readoutxx);
+
+#500
+
+//Writing to register 3
+send_serial_data(8'b00000011, readoutxx);
+send_serial_data(8'b00000010, readoutxx);
+
+#500
+
+//Writing to register 2
+send_serial_data(8'b00000010, readoutxx);
+send_serial_data(8'b00000011, readoutxx);
+
+#500
+
+//Writing to register 2
+send_serial_data(8'b00000010, readoutxx);
+send_serial_data(8'b00000010, readoutxx);
+
+#500
+
+//Reading from everything now
+
+//Initial adress being set to 4
+send_serial_data(8'b00000100, readoutxx);
+
+
+//Channel 0
+send_serial_data(8'b00001010, readoutxx);
+send_serial_data(8'b00110111, readoutxx);
+send_serial_data(8'b01101010, readoutxx);
+send_serial_data(8'b00110101, readoutxx);
+send_serial_data(8'b01101010, readoutxx);
+send_serial_data(8'b00110101, readoutxx);
+send_serial_data(8'b00110101, readoutxx);
+
+//Channel 1
+send_serial_data(8'b00001010, readoutxx);
+send_serial_data(8'b00110111, readoutxx);
+send_serial_data(8'b01101010, readoutxx);
+send_serial_data(8'b00110101, readoutxx);
+send_serial_data(8'b01101010, readoutxx);
+send_serial_data(8'b00110101, readoutxx);
+send_serial_data(8'b00110101, readoutxx);
+
+//Channel 2
+send_serial_data(8'b00001010, readoutxx);
+send_serial_data(8'b00110111, readoutxx);
+send_serial_data(8'b01101010, readoutxx);
+send_serial_data(8'b00110101, readoutxx);
+send_serial_data(8'b01101010, readoutxx);
+send_serial_data(8'b00110101, readoutxx);
+send_serial_data(8'b00110101, readoutxx);
+
+//Channel 3
+send_serial_data(8'b00001010, readoutxx);
+send_serial_data(8'b00110111, readoutxx);
+send_serial_data(8'b01101010, readoutxx);
+send_serial_data(8'b00110101, readoutxx);
+send_serial_data(8'b01101010, readoutxx);
+send_serial_data(8'b00110101, readoutxx);
+send_serial_data(8'b00110101, readoutxx);
+
+//Channel 4
+send_serial_data(8'b00001010, readoutxx);
+send_serial_data(8'b00110111, readoutxx);
+send_serial_data(8'b01101010, readoutxx);
+send_serial_data(8'b00110101, readoutxx);
+send_serial_data(8'b01101010, readoutxx);
+send_serial_data(8'b00110101, readoutxx);
+send_serial_data(8'b00110101, readoutxx);
+
+//Channel 5
+send_serial_data(8'b00001010, readoutxx);
+send_serial_data(8'b00110111, readoutxx);
+send_serial_data(8'b01101010, readoutxx);
+send_serial_data(8'b00110101, readoutxx);
+send_serial_data(8'b01101010, readoutxx);
+send_serial_data(8'b00110101, readoutxx);
+send_serial_data(8'b00110101, readoutxx);
+
+//Channel 6
+send_serial_data(8'b00001010, readoutxx);
+send_serial_data(8'b00110111, readoutxx);
+send_serial_data(8'b01101010, readoutxx);
+send_serial_data(8'b00110101, readoutxx);
+send_serial_data(8'b01101010, readoutxx);
+send_serial_data(8'b00110101, readoutxx);
+send_serial_data(8'b00110101, readoutxx);
+
+//Channel 7
+send_serial_data(8'b00001010, readoutxx);
+send_serial_data(8'b00110111, readoutxx);
+send_serial_data(8'b01101010, readoutxx);
+send_serial_data(8'b00110101, readoutxx);
+send_serial_data(8'b01101010, readoutxx);
+send_serial_data(8'b00110101, readoutxx);
+send_serial_data(8'b00110101, readoutxx);
+
+        end
 
 endmodule
