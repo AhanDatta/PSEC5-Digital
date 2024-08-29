@@ -51,7 +51,7 @@ module PSEC5_CH_DIGITAL (
     output logic CNT_SER
 );  
     state_t current_state;
-    logic [7:0] cbuffer;
+    //logic [7:0] cbuffer;
     logic [31:0] trig_shift_reg;
     logic [55:0] ctmp;
     logic start1;
@@ -236,7 +236,7 @@ module PSEC5_CH_DIGITAL (
     end
 
     always_ff @(posedge INST_READOUT) begin
-        ctmp <= {3'b0, trigger_cnt, CE, CD, CC, CB, CA}; //56 bits total.
+        ctmp <= {<<{3'b000, trigger_cnt, CE, CD, CC, CB, CA}}; //56 bits total.
     end
 
 
@@ -248,7 +248,7 @@ module PSEC5_CH_DIGITAL (
             for (int i = 0; i < 7; i++) begin
                 for (int j = 0; j < 8; j++) begin
                     if(SELECT_REG == i && ser_pos == j)
-                        cbuffer <= ctmp[i*8+j];
+                        CNT_SER <= ctmp[i*8+j];
                 end
             end
           ser_pos <= ser_pos + 1;
